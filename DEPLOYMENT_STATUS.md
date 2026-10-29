@@ -22,3 +22,8 @@
 真实 Supabase 恢复验证：临时账户使用 admin 生成恢复链接（不发邮件），浏览器成功验证、设置新密码、清理 URL、退出并用新密码重新登录；临时账户已删除。49 项逻辑／数据库测试通过，5 项浏览器测试通过。
 
 本地 `.env.operations.local` 中尚无 Twelve Data、SMTP 或 Cloudflare 专用 Pages Token。脚本 `scripts/operations.py` 可配置 Auth、行情 Secret、SMTP 和 GitHub 加密部署 Secret；账号本人需先注册服务并完成邮箱／发件人验证。具体步骤见 PROVIDER_SETUP.md。
+
+
+Auth 修复已手工发布 Cloudflare 生产部署 c1d5acc0。线上无效恢复链接提示及 URL 清理验证通过。GitHub Actions 40857346229 verify 成功（49 项逻辑测试、5 项浏览器测试）；部署仍因专用 Pages Token 未配置而跳过。
+
+需要账户本人完成：Cloudflare 仅当前账户 Pages Edit API Token；Twelve Data 注册／API Key 和公开行情授权；SMTP 注册及发件人验证。已创建忽略上传的本机 `.env.operations.local` 供填写。已完成的 Auth 配置不依赖这些新服务。
