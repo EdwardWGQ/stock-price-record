@@ -17,6 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - run: node --test desktop/policy.test.cjs desktop/export-policy.test.cjs
       - run: npx deno check --config supabase/functions/market-data/deno.json supabase/functions/market-data/index.ts
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

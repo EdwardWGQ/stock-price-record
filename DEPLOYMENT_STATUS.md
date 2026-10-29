@@ -29,3 +29,8 @@
 真实网站验证通过：Supabase 接口搜索 AAPL、取得报价 343.83 和 105 个历史交易日；浏览器成功添加股票并把起始日期改为 2026-07-04，采用 2026-07-06 开盘价 307.36，收益重新计算为 +11.87%。临时探测账户已删除。55 项逻辑测试和 5 项浏览器测试通过。
 
 国内行情发布验收：GitHub Actions 40874315627 的 verify、deploy 均成功，Cloudflare 生产部署 032bd4e3 对应 ace92ca。后端 MARKET_PROVIDER=china-public，普通股票当前可从国内来源自动取得数据。
+
+
+Windows 桌面版 1.0.0 已完成：安装版和免安装版生成，正式／演示页面、实际安装后启动、日期修改、原生 JSON 保存和取消保存验证通过。离线提示和导航限制已测试。应用访问已部署 HTTPS 网站，账户数据继续使用 Supabase，需要联网。未配置代码签名，Windows 可能提示未知发布者。
+
+交付目录位于本机 Documents/US-Equity-Monitor-Desktop，两个 EXE、使用说明和 SHA256SUMS 一起提供。构建源码与文档在 desktop/、DESKTOP.md，敏感配置和 release 二进制没有进入 Git。
