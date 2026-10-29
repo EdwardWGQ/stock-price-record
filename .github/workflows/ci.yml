@@ -1,0 +1,55 @@
+name: Verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npx deno check --config supabase/functions/market-data/deno.json supabase/functions/market-data/index.ts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: test-results/
+          retention-days: 7
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build production site
+        run: |
+          node --input-type=module -e "const e=process.env; if(!/^https:\/\/[\w-]+\.supabase\.co$/.test(e.VITE_SUPABASE_URL??'') || !e.VITE_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_')) throw new Error('Missing production Supabase configuration');"
+          npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_DEMO_MODE: 'false'
+      - name: Deploy to Cloudflare Pages
+        run: npx --yes wrangler@4.155.0 pages deploy dist --project-name=stock-atlas --branch=main --commit-dirty=false
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

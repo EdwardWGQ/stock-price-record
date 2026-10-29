@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-preview/
+.env
+.env.*
+!.env.example
+*.local
+supabase/.temp/
+supabase/.branches/
+test-results/
+playwright-report/
+*.zip
+artifacts/
+*.tsbuildinfo

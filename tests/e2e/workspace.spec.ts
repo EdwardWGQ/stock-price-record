@@ -1,0 +1,66 @@
+import {test,expect} from '@playwright/test';
+test.beforeEach(async({page})=>{await page.goto('/');});
+test('restores the original black monitor with 19 curves and watchlist',async({page})=>{
+ await expect(page.getByRole('link',{name:'US EQUITY MONITOR'})).toBeVisible();
+ await expect(page.locator('.wl-row')).toHaveCount(19);
+ await expect(page.getByRole('img',{name:'Cumulative return chart'})).toBeVisible();
+ await expect(page.locator('.alert-bar')).toContainText('PZZA');
+ await expect(page.locator('#volSection .vol-card')).toHaveCount(2);
+ await expect(page.locator('#volSection')).toContainText('VXN');
+ await expect(page.locator('#volSection')).toContainText('2026-10-28');
+ await page.getByRole('link',{name:'明细表',exact:true}).click();
+ await expect(page.locator('#detailSection')).toBeInViewport();
+ await expect(page.locator('#detailSection tbody tr')).toHaveCount(19);
+ await page.evaluate(()=>scrollTo(0,0));
+ expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe('rgb(0, 0, 0)');
+ await page.screenshot({path:'artifacts/restored-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'artifacts/restored-mobile.png',fullPage:true});
+});
+test('changes every baseline date and recalculates prices and returns',async({page})=>{
+ const original=await page.locator('.wl-row').first().innerText();
+ await page.getByRole('button',{name:'修改起始日期',exact:true}).click();
+ await page.getByLabel('起始记录日期',{exact:true}).fill('2026-07-01');
+ await page.getByRole('button',{name:'查询并预览新起点'}).click();
+ await expect(page.locator('.baseline-preview tbody tr')).toHaveCount(19);
+ await page.getByRole('button',{name:'确认修改日期',exact:true}).click();
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+ await expect(page.getByLabel('当前统一起始日期')).toHaveValue('2026-07-01');
+ expect(await page.locator('.wl-row').first().innerText()).not.toBe(original);
+ await expect(page.locator('.table-section tbody tr').first()).toContainText('2026-07-01');
+});
+test('changes only one stock and displays a non-trading-day rollover',async({page})=>{
+ await page.getByRole('button',{name:'修改日期 AAPL',exact:true}).click();
+ await page.getByLabel('起始记录日期',{exact:true}).fill('2026-07-04');
+ await page.getByRole('button',{name:'查询并预览新起点'}).click();
+ await expect(page.locator('.baseline-preview')).toContainText('2026-07-06');
+ await page.getByRole('button',{name:'确认修改日期',exact:true}).click();
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+ await expect(page.getByLabel('当前统一起始日期')).toHaveValue('2026-06-01');
+ const aapl=page.locator('.table-section tbody tr').filter({hasText:'AAPL'});
+ await expect(aapl).toContainText('2026-07-04');await expect(aapl).toContainText('2026-07-06');
+});
+test('does not overwrite a baseline when the history request has no data',async({page})=>{
+ await page.getByRole('button',{name:'修改日期 AAPL',exact:true}).click();
+ await page.getByLabel('起始记录日期',{exact:true}).fill('2026-10-29');
+ await page.getByRole('button',{name:'查询并预览新起点'}).click();
+ await expect(page.getByRole('alert')).toContainText('原记录保持不变');
+ await expect(page.getByRole('button',{name:'确认修改日期',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(page.getByLabel('当前统一起始日期')).toHaveValue('2026-06-01');
+});
+test('filters a curve, edits trade time and exports records',async({page})=>{
+ await page.locator('.tags').getByRole('button',{name:'TSLA',exact:true}).click();
+ await expect(page.locator('.wl-row.active')).toContainText('TSLA');
+ await page.getByRole('button',{name:'交易记录',exact:true}).click();
+ await page.getByRole('button',{name:'编辑 AAPL',exact:true}).click();
+ await page.getByLabel('记录日期和时间',{exact:true}).fill('2026-10-01T12:00:45');
+ await page.getByLabel('记录时区',{exact:true}).selectOption('Asia/Kathmandu');
+ await page.getByRole('button',{name:'保存修改',exact:true}).click();
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+ await page.getByRole('button',{name:'编辑 AAPL',exact:true}).click();
+ await expect(page.getByLabel('记录日期和时间',{exact:true})).toHaveValue('2026-10-01T12:00:45');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ const download=page.waitForEvent('download');await page.getByRole('button',{name:'导出我的数据',exact:true}).click();expect((await download).suggestedFilename()).toBe('us-equity-monitor.json');
+});
