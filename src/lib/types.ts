@@ -13,6 +13,7 @@ export interface Trade extends Instrument {
 }
 export interface Profile { user_id: string; language: Language; timezone: string; updated_at: string; baseline_date?: string }
 export interface Bar { date: string; open?: string; close: string }
+export interface HistoryResult { bars:Bar[];currency:string;exchange:string;source?:string;price_adjustment?:string }
 export interface Quote {
   symbol: string; exchange: string; currency: string; price: string; change_percent: string;
   as_of: string; fetched_at: string; market_open: boolean | null;

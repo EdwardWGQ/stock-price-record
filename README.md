@@ -41,7 +41,7 @@ npm run dev
 
 Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.pages.dev`，生产分支 `main`，构建命令 `npm run build`，输出 `dist`，Node.js 24。GitHub 源码仓库：https://github.com/EdwardWGQ/stock-price-record。
 
-正式版已发布：https://stock-atlas.pages.dev/。演示版已更新：https://demo.stock-atlas.pages.dev/，使用明确标注的历史快照。普通股票公开行情授权与 Key 仍待配置；Brevo 免费 SMTP、注册及密码重置已经配置并完成真实邮件验证。
+正式版已发布：https://stock-atlas.pages.dev/。演示版已更新：https://demo.stock-atlas.pages.dev/，使用明确标注的历史快照。普通股票已切换国内网页行情来源：腾讯报价与搜索、新浪日线；无需付费 API Key。Brevo 免费 SMTP、注册及密码重置已完成真实邮件验证。
 
 构建变量：
 
@@ -57,11 +57,12 @@ Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.p
 
 后端 Secret 配置：
 
-- `TWELVE_DATA_API_KEY`：你的 Twelve Data Key，尚未提供。
+- `MARKET_PROVIDER=china-public`：当前国内网页行情适配器，无需 API Key。
+- `TWELVE_DATA_API_KEY`：仅选择 `MARKET_PROVIDER=twelve-data` 时需要。
 - `ALLOWED_ORIGINS`：默认只允许 `https://stock-atlas.pages.dev`。使用自定义域名时改为精确地址列表。
 - `MARKET_UPSTREAM_PER_MINUTE`：按行情套餐额度设定全局每分钟预算，默认 8。
 
-Supabase Auth 需要正式域名作为 Site URL 和精确 Redirect URLs，启用 Email confirmation，关闭匿名注册，并配置自己的 SMTP 发信服务。远程邮件和回跳配置已完成；真实普通股票行情仍需取得授权并配置。
+Supabase Auth 需要正式域名作为 Site URL 和精确 Redirect URLs，启用 Email confirmation，关闭匿名注册，并配置自己的 SMTP 发信服务。远程邮件和回跳配置已完成；国内网页行情适配器已部署。
 
 函数平台设置 `verify_jwt=false` 以兼容新 publishable key，处理器仍通过 Auth `getUser` 验证登录用户。数据表 RLS 限制每个用户自己的记录；市场缓存 RPC 只允许后台角色调用。
 
@@ -74,11 +75,17 @@ npx supabase functions deploy market-data --project-ref lkvvqfhohelebvlzwfcp --u
 
 新空项目先按 Supabase CLI 帮助执行迁移；本项目迁移版本与远程一致。
 
-## 行情与全球使用
+## 国内用户与行情来源
 
-Twelve Data 套餐必须支持需要的交易所和公开展示授权。普通股票未配置 Key 时会明确显示不可用；不会把缺失行情当成零。VIX／VXN 官方日线不依赖 Twelve Data Key。VIX／VXN 的有效代码、交易所和权限由供应商套餐决定，演示的 VIX／VXN 使用已核对的 Cboe 官方历史快照，标明数据日期；Supabase 云端的 VIX／VXN 已同步接入 Cboe 官方日线，按小时共享缓存；普通股票行情仍由 Twelve Data 提供。本机原程序已接入 Cboe 官方 VIX 和 VXN 日线，并显示日涨跌、5 日变化、20 日均值和小图。
+当前面向国内用户，自动行情保持美股范围。搜索／当前报价采用腾讯财经网页接口，历史日开盘和收盘数据采用新浪财经 JSONP 接口；后端仅解析 JSON，不执行来源脚本。VIX／VXN 继续采用 Cboe 官方日线。
 
-价格比较使用未复权日开盘／收盘价；分红和拆股等公司行为需要另外核对，不代表含分红总回报或券商账户实际盈亏。所有用户数据采用数据库权限隔离；全球上线仍需要真实注册邮件验收、行情核对、容量测试、备份和监控。
+这些网页接口当前可以无付费 Key 调用，**不是正式签约或有 SLA 的数据 API，也没有核实到允许网站转载的明示许可**。只面向国内用户并不会自动改变数据授权要求。不要把它称作官方授权、永久免费、保证稳定或可无限调用的服务；进一步公开运营应与来源方确认适用用途。
+
+请求有共享缓存、每用户限流和全局限流，数据失败不会按零处理，不会悄悄覆盖基线。报价使用来源时间戳，无法确认开闭市时显示未知；超过 15 分钟或请求失败后使用的旧数据标记过期。新浪历史日线的复权口径没有被服务保证，应在遇到拆股和分红时另行核对，本项目不声称它是未复权总回报数据。
+
+当前 Cloudflare 和 Supabase 仍在海外基础设施上，面向国内用户不代表已迁移国内托管；实际国内网络访问质量需要持续测量。
+
+切换国内来源：`python scripts/operations.py china`。如以后获得正式授权的 Twelve Data Key，可执行 `python scripts/operations.py market`，该命令同时切换 provider。
 
 ## 验证
 
@@ -114,6 +121,6 @@ Supabase Site URL 已设置为 `https://stock-atlas.pages.dev`，允许正式 `/
 真实服务和自动部署凭据见 [PROVIDER_SETUP.md](PROVIDER_SETUP.md)。本地 `.env.operations.local` 已被忽略，不上传源码。操作脚本不输出密钥。Cloudflare 登录用于手工部署，长期 GitHub 自动部署需要专用 Pages API Token。
 
 
-Brevo 免费 SMTP 已完成连接并启用中英文确认／密码恢复模板，注册发信请求和 SMTP 认证／发送验证成功。真实注册邮件确认、正式网站登录和邮件密码重置闭环已通过，旧临时密码已失效；普通股票行情授权及 API Key 仍未配置。
+Brevo 免费 SMTP 已完成连接并启用中英文确认／密码恢复模板，注册发信请求和 SMTP 认证／发送验证成功。真实注册邮件确认、正式网站登录和邮件密码重置闭环已通过，旧临时密码已失效；国内网页行情已接入，无付费 API Key；公开使用的数据转载许可仍未核实。
 
 免费邮件默认限制为每小时 30 封，Brevo 免费套餐的每日额度另外生效。已修正此前默认每小时 2 封造成密码重置邮件未送出的配置。

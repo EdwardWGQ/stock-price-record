@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import type {Bar,WatchItem,Language} from '../lib/types';
+import type {Bar,WatchItem,Language,HistoryResult} from '../lib/types';
 import type {BaselineUpdate} from '../lib/api';
 import {baselineFromBars,validDate} from '../lib/baseline';
 import {resolveLocal} from '../lib/time';
@@ -19,7 +19,7 @@ export function BaselineDialog({items,defaultDate,language,onClose,onApply}:{ite
    if(!validDate(date))throw new Error('DATE_INVALID');const updates:BaselineUpdate[]=[];const histories:Record<string,Bar[]>={};
    for(let i=0;i<items.length;i++){
     const item=items[i];setProgress(`${i+1}/${items.length} ${item.symbol}`);
-    const response=demoMode?{bars:demoBars(item,date),currency:item.currency,exchange:item.exchange}:await fetchHistory(item,date);
+    const response:HistoryResult=demoMode?{bars:demoBars(item,date),currency:item.currency,exchange:item.exchange}:await fetchHistory(item,date);
     if(response.currency!==item.currency||response.exchange!==item.exchange)throw new Error('IDENTITY_MISMATCH');const b=baselineFromBars(date,response.bars);
     updates.push({id:item.id,revision:item.revision,baseline_date:date,baseline_session:b.session,baseline_at:resolveLocal(`${date}T00:00:00`,item.timezone),baseline_timezone:item.timezone,baseline_price:b.price});histories[item.id]=b.bars;
    }setPreview({updates,bars:histories});

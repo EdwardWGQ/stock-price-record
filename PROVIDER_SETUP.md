@@ -80,3 +80,10 @@ Brevo 免费账户的邮箱和手机验证已完成，`US Equity Monitor / Supab
 SMTP Key 页面显示到期时间为 2027-10-29，另外连续 90 天不使用也会过期；需要在到期前替换后端凭据。不要将 SMTP_PASS 或账户登录密码提交到 GitHub。
 
 Supabase 邮件限流已设为每小时 30 封，以替代默认测试服务的每小时 2 封。Brevo 免费服务每日上限为 300 封，额度不足时需等待重置或由用户选择升级；不会自动购买。
+
+
+## 当前国内来源
+
+用户改为面向国内用户，已经接入腾讯网页搜索／报价与新浪美股历史日线。`MARKET_PROVIDER=china-public` 已在 Supabase 选择，无付费 Key；需要重配可执行 `python scripts/operations.py china`。切回正式 Twelve Data Key 时 `market` 命令会同时选择 `twelve-data`。
+
+当前国内来源仅确认接口技术上可读取，未确认网站转载授权，也没有官方 SLA。不得将免费可调用等同于免费授权公开再分发；正式运营需与来源确认。

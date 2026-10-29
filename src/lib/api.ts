@@ -1,6 +1,6 @@
 import { supabase } from './client';
 import { watchSchema, tradeSchema, instrumentSchema } from './validation';
-import type { WatchItem, Trade, Profile, WatchInput, TradeInput, Instrument, Quote, Bar, Volatility } from './types';
+import type { WatchItem, Trade, Profile, WatchInput, TradeInput, Instrument, Quote, Bar, Volatility, HistoryResult } from './types';
 const client = () => { if (!supabase) throw new Error('CONFIG'); if (!navigator.onLine) throw new Error('OFFLINE'); return supabase; };
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T { if (result.error) throw new Error(result.error.message); return result.data as T; }
 export async function loadRecords() {
@@ -65,7 +65,7 @@ export async function searchInstruments(query: string): Promise<Instrument[]> {
 }
 export async function fetchQuote(instrument: Instrument): Promise<Quote> { return marketRequest({ action: 'quote', instrument }); }
 export async function fetchVolatility(symbol:'VIX'|'VXN'):Promise<Volatility>{return marketRequest({action:'volatility',symbol});}
-export async function fetchHistory(instrument: Instrument, start: string) { return marketRequest<{ bars: Bar[]; currency: string; exchange: string }>({ action: 'history', instrument, start }); }
+export async function fetchHistory(instrument: Instrument, start: string) { return marketRequest<HistoryResult>({ action: 'history', instrument, start }); }
 export interface BaselineUpdate { id: string; revision: number; baseline_date: string; baseline_session: string; baseline_at: string; baseline_timezone: string; baseline_price: string }
 export async function updateBaselines(updates: BaselineUpdate[], defaultDate: string | null): Promise<WatchItem[]> {
   return unwrap(await client().rpc('update_baseline_dates',{p_updates:updates,p_default_date:defaultDate}));

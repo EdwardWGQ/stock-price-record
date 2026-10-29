@@ -122,8 +122,14 @@ def market(config):
     key=config.get('TWELVE_DATA_API_KEY')
     if not key: raise RuntimeError('TWELVE_DATA_API_KEY is missing. Register your provider first.')
     request(f'https://api.supabase.com/v1/projects/{PROJECT}/secrets',supabase_token(config),'POST',
-        [{'name':'TWELVE_DATA_API_KEY','value':key},{'name':'ALLOWED_ORIGINS','value':SITE}])
+        [{'name':'TWELVE_DATA_API_KEY','value':key},{'name':'MARKET_PROVIDER','value':'twelve-data'},
+         {'name':'ALLOWED_ORIGINS','value':SITE}])
     print('Market API key saved to Supabase Edge Function secrets; never included in frontend code.')
+
+def china_market(config):
+    request(f'https://api.supabase.com/v1/projects/{PROJECT}/secrets',supabase_token(config),'POST',
+        [{'name':'MARKET_PROVIDER','value':'china-public'},{'name':'ALLOWED_ORIGINS','value':SITE}])
+    print('Domestic public web quote adapter selected. No API payment or subscription created.')
 
 def deploy(config):
     cf=config.get('CLOUDFLARE_API_TOKEN')
@@ -149,10 +155,10 @@ def deploy(config):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['auth','smtp','market','deploy'])
+    parser.add_argument('action',choices=['auth','smtp','market','china','deploy'])
     args=parser.parse_args()
     try:
-        {'auth':auth_config,'smtp':smtp,'market':market,'deploy':deploy}[args.action](settings())
+        {'auth':auth_config,'smtp':smtp,'market':market,'china':china_market,'deploy':deploy}[args.action](settings())
     except Exception as error:
         print('Configuration did not complete: '+str(error),file=sys.stderr)
         return 1

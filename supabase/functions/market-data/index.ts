@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requestSchema, normalizeQuote, normalizeHistory, searchResults } from './core.ts';
 import { configuredOrigins } from './config.ts';
 import { officialVolatility } from './volatility.ts';
+import { fetchChinaSearch,fetchChinaQuote,fetchChinaHistory } from './china.ts';
 
 const env = (name: string) => Deno.env.get(name) ?? '';
 function platformKey(kind: 'PUBLISHABLE' | 'SECRET') {
@@ -56,11 +57,19 @@ Deno.serve(async req => {
       await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:3600});
       return response(data,200,origin);
     }
-    const cacheKey = 'v2:' + (input.action === 'search'
+    const providerName=env('MARKET_PROVIDER')||'china-public';
+    if(!['china-public','twelve-data'].includes(providerName))throw new Error('MARKET_CONFIG');
+    const cacheKey = providerName+':v3:' + (input.action === 'search'
       ? JSON.stringify({ action: input.action, query: input.query.toUpperCase() })
       : JSON.stringify({ action: input.action, symbol: input.instrument.symbol, exchange: input.instrument.exchange, currency: input.instrument.currency, ...(input.action === 'history' ? { start: input.start } : {}) }));
     const cached = await rpc<unknown>('market_cache_get', { p_key: cacheKey });
     if (cached) return response(cached, 200, origin);
+    if(providerName==='china-public') {
+      if(!await allowed('upstream:china-public',60))return response({error:'RATE_LIMIT'},429,origin);
+      const data=input.action==='search'?await fetchChinaSearch(input.query):input.action==='quote'?await fetchChinaQuote(input.instrument):await fetchChinaHistory(input.instrument,input.start);
+      await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:input.action==='quote'?120:3600});
+      return response(data,200,origin);
+    }
     if (!env('TWELVE_DATA_API_KEY')) return response({ error: 'MARKET_CONFIG' }, 503, origin);
     const budget = Math.min(10000, Math.max(1, Number(env('MARKET_UPSTREAM_PER_MINUTE') || '8')));
     if (!Number.isInteger(budget)) throw new Error('MARKET_CONFIG');
