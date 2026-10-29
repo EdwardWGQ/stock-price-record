@@ -74,3 +74,12 @@ SMTP 配置后用实际收件邮箱检查注册、确认、登录、密码重置
 Brevo 进度：邮箱和新设备验证已通过，发件地址 wanggq908@gmail.com 在后台显示 Verified，SMTP 主机与登录名已确认。生成 SMTP Key 需要新的六位邮箱验证码，目前尚未取得密钥，未将未验证配置应用到 Supabase。后台还提示首次发信前需要手机验证。
 
 Brevo 的生成密钥邮箱验证已通过；随后平台强制要求手机验证，创建 SMTP 密钥尚未完成。需要用户提供真实手机号及收到的短信验证码。账户仍为 free，没有绑卡或支付。
+
+
+## 免费 SMTP 当前结果
+
+Brevo 免费账户的邮箱和手机验证已完成，`US Equity Monitor / Supabase Production` 专用 SMTP Key 已生成并保存到本机忽略文件。Supabase 已配置 `smtp-relay.brevo.com:587`，发件人 `US Equity Monitor <wanggq908@gmail.com>`，确认及恢复中英文模板已启用。
+
+实际验证：SMTP TLS 连接、认证和向项目所有者发测试邮件成功；Supabase signup 请求通过 Brevo 发送测试注册邮件成功，保持邮箱确认开启。等待项目所有者点击确认链接以完成收件和浏览器回跳验收。此项没有绑卡或购买套餐，免费发信仍受 Brevo 额度限制。
+
+SMTP Key 页面显示到期时间为 2027-10-29，另外连续 90 天不使用也会过期；需要在到期前替换后端凭据。不要将 SMTP_PASS 或账户登录密码提交到 GitHub。

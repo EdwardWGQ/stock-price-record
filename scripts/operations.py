@@ -89,8 +89,8 @@ def auth_config(config, custom_templates=False):
         'mailer_autoconfirm':False,'external_anonymous_users_enabled':False,
         'mailer_secure_email_change_enabled':True}
     if custom_templates:
-        body.update({'mailer_templates_confirmation_content':(ROOT/'supabase/templates/confirmation.html').read_text(),
-            'mailer_templates_recovery_content':(ROOT/'supabase/templates/recovery.html').read_text(),
+        body.update({'mailer_templates_confirmation_content':(ROOT/'supabase/templates/confirmation.html').read_text(encoding='utf-8'),
+            'mailer_templates_recovery_content':(ROOT/'supabase/templates/recovery.html').read_text(encoding='utf-8'),
             'mailer_subjects_confirmation':'Confirm your account / 验证账户 · US Equity Monitor',
             'mailer_subjects_recovery':'Reset password / 重置密码 · US Equity Monitor'})
     endpoint=f'https://api.supabase.com/v1/projects/{PROJECT}/config/auth'

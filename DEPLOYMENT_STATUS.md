@@ -37,3 +37,6 @@ Cloudflare 专用部署 Token 已配置到本机忽略文件及 GitHub Actions �
 剩余服务配置：Twelve Data 账户／Key 和正式 SMTP 账户／凭据仍未创建。自动部署 Token 已完成配置，不再阻塞网站代码发布。
 
 已提交 Brevo 免费账户注册（wanggq908@gmail.com），未付费或绑定信用卡。当前需要新设备邮箱六位验证码；SMTP 配置尚未完成。免费行情服务的公开展示限制已核对，尚未确认全球公共网站可用的免费统一行情授权。
+
+
+Brevo SMTP 已接通：邮箱／手机验证完成，网站专用 SMTP Key active，Supabase 自定义 SMTP 和确认／恢复模板已配置并读回验证。实际 SMTP 测试服务器接受，Supabase 注册邮件请求 HTTP 200；等待所有者点击真实测试邮件的确认链接验证收件／回跳。免费套餐，无支付或绑卡。

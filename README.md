@@ -112,3 +112,6 @@ Supabase Site URL 已设置为 `https://stock-atlas.pages.dev`，允许正式 `/
 确认／恢复模板位于 `supabase/templates/`，提供中英文邮件和跨浏览器 token-hash 验证。当前 Supabase 免费项目使用默认 SMTP，平台拒绝修改邮件模板；注册自定义 SMTP 后运行 `python scripts/operations.py smtp` 才会启用模板。前端也兼容默认 PKCE 邮件回跳。
 
 真实服务和自动部署凭据见 [PROVIDER_SETUP.md](PROVIDER_SETUP.md)。本地 `.env.operations.local` 已被忽略，不上传源码。操作脚本不输出密钥。Cloudflare 登录用于手工部署，长期 GitHub 自动部署需要专用 Pages API Token。
+
+
+Brevo 免费 SMTP 已完成连接并启用中英文确认／密码恢复模板，注册发信请求和 SMTP 认证／发送验证成功。真实邮件确认与密码重置收件闭环仍待验证；普通股票行情授权及 API Key 仍未配置。
