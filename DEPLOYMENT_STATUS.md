@@ -35,3 +35,5 @@ Cloudflare 专用部署 Token 已配置到本机忽略文件及 GitHub Actions �
 自动部署验收成功：GitHub Actions run 40858041816 的 verify 和 deploy 均成功；main 提交 84069fbac671486fe103d617bf6276f2236f8308 自动发布到 Cloudflare，生产部署短 ID 5f168489。正式网站 HTTP 200、登录界面和页面脚本验证通过；演示 19 只股票和两个指数面板正常。后续 main 推送在验证通过后自动部署。
 
 剩余服务配置：Twelve Data 账户／Key 和正式 SMTP 账户／凭据仍未创建。自动部署 Token 已完成配置，不再阻塞网站代码发布。
+
+已提交 Brevo 免费账户注册（wanggq908@gmail.com），未付费或绑定信用卡。当前需要新设备邮箱六位验证码；SMTP 配置尚未完成。免费行情服务的公开展示限制已核对，尚未确认全球公共网站可用的免费统一行情授权。
