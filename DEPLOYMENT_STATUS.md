@@ -1,42 +1,27 @@
 # 部署状态 · 2026-10-29
 
-已发布用户确认的 US EQUITY MONITOR 黑底网站，包含多股票收益曲线、右侧自选股、统一及单只股票起始日期编辑、VIX／VXN 分析和明细表。
+已发布原版风格的 US EQUITY MONITOR 黑底网站，保留累计收益多曲线、右侧自选股、VIX／VXN 分析和明细表，支持统一／单股修改起始记录日期。
 
-- GitHub：https://github.com/EdwardWGQ/stock-price-record，代码已上传 main，原有 MIT LICENSE 保留。
-- GitHub CI：构建、43 项逻辑／数据库测试、Deno 检查及 5 项浏览器测试通过。
-- Cloudflare 正式版：https://stock-atlas.pages.dev/，已部署生产构建，演示关闭，连接 Supabase。
-- Cloudflare 演示版：https://demo.stock-atlas.pages.dev/，已替换为新版黑底页面，19 只股票历史快照，明确标注非实时行情。
-- 本次生产部署 ID：f0ef4b69（短 ID，详见 Cloudflare Dashboard）；预览部署短 ID aacdc435。
-- Supabase 项目：lkvvqfhohelebvlzwfcp，已应用初始及 baseline_dates 迁移；market-data v4 已部署，包含 Cboe VIX／VXN 官方日线接口和缓存。
-- 线上验证：两个网站 HTTP 200、无页面脚本异常；演示 19 只股票和两个指数面板正常；单股起始日期编辑、周末顺延显示、手机 390px 页面已验证。
-- GitHub 自动部署：尚未启用。Cloudflare Git source 连接返回 8000011，提示 Cloudflare Pages Git installation 内部异常，需要重新授权其 GitHub 应用；Actions 替代方案需要专用 Pages API token。
-- 待配置：普通股票 Twelve Data API Key 和授权套餐；正式 SMTP、Supabase Site URL／Redirect URLs，并验证真实邮件注册、登录、密码重置。
+## 已完成
 
-正式版网页可访问，但真实普通股票行情、生产邮件和完整线上负载验收尚未完成，不能宣称已完成全球生产服务。
+- 正式网站：https://stock-atlas.pages.dev/。
+- 演示：https://demo.stock-atlas.pages.dev/，19 只股票历史快照，明确标记非实时与示例开盘价。
+- GitHub：https://github.com/EdwardWGQ/stock-price-record，MIT LICENSE 保留。
+- 自动部署：GitHub Actions 已启用；main 更新通过验证后发布至 Cloudflare Pages。已验证整轮 verify 与 deploy 成功。
+- Supabase：项目 lkvvqfhohelebvlzwfcp；初始及 baseline_dates 迁移已应用，market-data v4 包含开盘／收盘历史接口及 Cboe VIX／VXN 官方日线缓存。
+- 数据保护：行级权限、精确十进制、UTC／时区处理、版本冲突与批量日期事务。
+- Auth：正式站点和 /auth/callback 已配置；密码最少 12 位且含大小写、数字与符号；邮箱确认开启，匿名注册关闭。
+- 免费邮件：Brevo 邮箱／手机／发件人验证完成，网站专用 SMTP Key active，Supabase 自定义 SMTP 与中英文确认／重置模板生效。
+- 邮件限流：发现默认每小时 2 封导致重置邮件未发；已改成自定义 SMTP 每小时 30 封，配置脚本同步修正。Brevo 免费套餐每日额度仍独立生效。
+- 真实邮件验收：注册邮件已实际收到并点击确认；正式网站登录成功；重新发送的恢复邮件后台记录发送时间，用户已设置新密码，旧临时密码已验证不能登录。用户的新密码未被读取或保存。
+- 自动化验证：49 项逻辑／数据库测试、5 项浏览器测试、生产构建和 Deno 检查通过。
 
+## 仍未完成
 
-注册配置修复：Site URL 已设为正式域名，新增 `/auth/callback` 允许地址，最小密码 12 位及大小写／数字／符号规则，邮箱确认继续开启，匿名注册关闭。
+普通股票公开行情没有配置 API Key。已核对 Twelve Data、Finnhub、Alpha Vantage、Marketstack 和其他候选；没有确认允许本网站面向全球第三方公开展示的免费统一行情授权。没有购买行情套餐，也没有把个人测试免费 Key 接入公共生产网站。
 
-新中英文邮件模板和 token-hash 跨浏览器回跳代码已准备；平台免费项目默认 SMTP 不允许修改邮件模板，当前未启用自定义模板，待 SMTP 注册后配置。仍兼容默认 PKCE 链接。
+若用户选择免费 CSV 历史数据导入，可继续实现导入及日期重算；自动行情入口保留。另一个选项是取得允许公开展示的服务商授权。
 
-真实 Supabase 恢复验证：临时账户使用 admin 生成恢复链接（不发邮件），浏览器成功验证、设置新密码、清理 URL、退出并用新密码重新登录；临时账户已删除。49 项逻辑／数据库测试通过，5 项浏览器测试通过。
+SMTP Key 页面显示到期日 2027-10-29，连续 90 天不使用也会过期，需要届时更换。所有账户凭据只在本机忽略文件或服务端 Secret，不在 GitHub。
 
-本地 `.env.operations.local` 中尚无 Twelve Data、SMTP 或 Cloudflare 专用 Pages Token。脚本 `scripts/operations.py` 可配置 Auth、行情 Secret、SMTP 和 GitHub 加密部署 Secret；账号本人需先注册服务并完成邮箱／发件人验证。具体步骤见 PROVIDER_SETUP.md。
-
-
-Auth 修复已手工发布 Cloudflare 生产部署 c1d5acc0。线上无效恢复链接提示及 URL 清理验证通过。GitHub Actions 40857346229 verify 成功（49 项逻辑测试、5 项浏览器测试）；部署仍因专用 Pages Token 未配置而跳过。
-
-需要账户本人完成：Cloudflare 仅当前账户 Pages Edit API Token；Twelve Data 注册／API Key 和公开行情授权；SMTP 注册及发件人验证。已创建忽略上传的本机 `.env.operations.local` 供填写。已完成的 Auth 配置不依赖这些新服务。
-
-
-Cloudflare 专用部署 Token 已配置到本机忽略文件及 GitHub Actions 加密 Secret。CLOUDFLARE_DEPLOY_ENABLED 已启用，使用 GitHub Actions 在 main 更新且验证通过后部署；不依赖报错的 Cloudflare GitHub 应用安装。正在执行首次自动部署验收。令牌不在源码中。
-
-
-自动部署验收成功：GitHub Actions run 40858041816 的 verify 和 deploy 均成功；main 提交 84069fbac671486fe103d617bf6276f2236f8308 自动发布到 Cloudflare，生产部署短 ID 5f168489。正式网站 HTTP 200、登录界面和页面脚本验证通过；演示 19 只股票和两个指数面板正常。后续 main 推送在验证通过后自动部署。
-
-剩余服务配置：Twelve Data 账户／Key 和正式 SMTP 账户／凭据仍未创建。自动部署 Token 已完成配置，不再阻塞网站代码发布。
-
-已提交 Brevo 免费账户注册（wanggq908@gmail.com），未付费或绑定信用卡。当前需要新设备邮箱六位验证码；SMTP 配置尚未完成。免费行情服务的公开展示限制已核对，尚未确认全球公共网站可用的免费统一行情授权。
-
-
-Brevo SMTP 已接通：邮箱／手机验证完成，网站专用 SMTP Key active，Supabase 自定义 SMTP 和确认／恢复模板已配置并读回验证。实际 SMTP 测试服务器接受，Supabase 注册邮件请求 HTTP 200；等待所有者点击真实测试邮件的确认链接验证收件／回跳。免费套餐，无支付或绑卡。
+网页、登录和免费邮件已可使用；完整自动股票行情以及面向目标流量的负载和恢复演练仍需完成，不能宣称全球无限免费行情或绝对零错误。

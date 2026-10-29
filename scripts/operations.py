@@ -109,9 +109,13 @@ def smtp(config):
     token=supabase_token(config)
     body={'smtp_host':config['SMTP_HOST'],'smtp_port':str(int(config['SMTP_PORT'])),
         'smtp_user':config['SMTP_USER'],'smtp_pass':config['SMTP_PASS'],
-        'smtp_admin_email':config['SMTP_FROM_EMAIL'],'smtp_sender_name':config.get('SMTP_SENDER_NAME','US Equity Monitor')}
+        'smtp_admin_email':config['SMTP_FROM_EMAIL'],'smtp_sender_name':config.get('SMTP_SENDER_NAME','US Equity Monitor'),
+        'rate_limit_email_sent':30}
     request(f'https://api.supabase.com/v1/projects/{PROJECT}/config/auth',token,'PATCH',body)
     auth_config(config,custom_templates=True)
+    verified=request(f'https://api.supabase.com/v1/projects/{PROJECT}/config/auth',token)
+    for key in ['smtp_host','smtp_port','smtp_user','smtp_admin_email','smtp_sender_name','rate_limit_email_sent']:
+        if verified.get(key)!=body[key]:raise RuntimeError('SMTP config verification failed: '+key)
     print('SMTP credentials configured server-side. Real delivery still requires a test email.')
 
 def market(config):

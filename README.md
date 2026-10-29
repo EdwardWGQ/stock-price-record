@@ -41,7 +41,7 @@ npm run dev
 
 Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.pages.dev`，生产分支 `main`，构建命令 `npm run build`，输出 `dist`，Node.js 24。GitHub 源码仓库：https://github.com/EdwardWGQ/stock-price-record。
 
-正式版已发布：https://stock-atlas.pages.dev/。演示版已更新：https://demo.stock-atlas.pages.dev/，使用明确标注的历史快照。普通股票行情 Key、生产邮件和注册回跳仍待配置。
+正式版已发布：https://stock-atlas.pages.dev/。演示版已更新：https://demo.stock-atlas.pages.dev/，使用明确标注的历史快照。普通股票公开行情授权与 Key 仍待配置；Brevo 免费 SMTP、注册及密码重置已经配置并完成真实邮件验证。
 
 构建变量：
 
@@ -61,7 +61,7 @@ Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.p
 - `ALLOWED_ORIGINS`：默认只允许 `https://stock-atlas.pages.dev`。使用自定义域名时改为精确地址列表。
 - `MARKET_UPSTREAM_PER_MINUTE`：按行情套餐额度设定全局每分钟预算，默认 8。
 
-Supabase Auth 需要正式域名作为 Site URL 和精确 Redirect URLs，启用 Email confirmation，关闭匿名注册，并配置自己的 SMTP 发信服务。远程邮件、回跳配置和真实行情仍需完成。
+Supabase Auth 需要正式域名作为 Site URL 和精确 Redirect URLs，启用 Email confirmation，关闭匿名注册，并配置自己的 SMTP 发信服务。远程邮件和回跳配置已完成；真实普通股票行情仍需取得授权并配置。
 
 函数平台设置 `verify_jwt=false` 以兼容新 publishable key，处理器仍通过 Auth `getUser` 验证登录用户。数据表 RLS 限制每个用户自己的记录；市场缓存 RPC 只允许后台角色调用。
 
@@ -109,9 +109,11 @@ Cloudflare GitHub 应用连接报错 8000011，目前使用 GitHub Actions 作�
 
 Supabase Site URL 已设置为 `https://stock-atlas.pages.dev`，允许正式 `/auth/callback`，最小密码 12 位且要求大小写、数字和符号，继续开启邮箱确认和关闭匿名注册。
 
-确认／恢复模板位于 `supabase/templates/`，提供中英文邮件和跨浏览器 token-hash 验证。当前 Supabase 免费项目使用默认 SMTP，平台拒绝修改邮件模板；注册自定义 SMTP 后运行 `python scripts/operations.py smtp` 才会启用模板。前端也兼容默认 PKCE 邮件回跳。
+确认／恢复模板位于 `supabase/templates/`，提供中英文邮件和跨浏览器 token-hash 验证。当前已使用 Brevo 免费自定义 SMTP，两种邮件模板已启用；`python scripts/operations.py smtp` 可重新配置 SMTP 和模板。前端也兼容默认 PKCE 邮件回跳。
 
 真实服务和自动部署凭据见 [PROVIDER_SETUP.md](PROVIDER_SETUP.md)。本地 `.env.operations.local` 已被忽略，不上传源码。操作脚本不输出密钥。Cloudflare 登录用于手工部署，长期 GitHub 自动部署需要专用 Pages API Token。
 
 
-Brevo 免费 SMTP 已完成连接并启用中英文确认／密码恢复模板，注册发信请求和 SMTP 认证／发送验证成功。真实邮件确认与密码重置收件闭环仍待验证；普通股票行情授权及 API Key 仍未配置。
+Brevo 免费 SMTP 已完成连接并启用中英文确认／密码恢复模板，注册发信请求和 SMTP 认证／发送验证成功。真实注册邮件确认、正式网站登录和邮件密码重置闭环已通过，旧临时密码已失效；普通股票行情授权及 API Key 仍未配置。
+
+免费邮件默认限制为每小时 30 封，Brevo 免费套餐的每日额度另外生效。已修正此前默认每小时 2 封造成密码重置邮件未送出的配置。
