@@ -70,3 +70,5 @@ SMTP 配置后用实际收件邮箱检查注册、确认、登录、密码重置
 核对日期：2026-10-29。Twelve Data Basic 为 $0，8 次 API credit／分钟、800／日，但属于测试及内部 non-display 使用；[条款](https://twelvedata.com/terms)要求外部展示及再分发得到相应授权。[Finnhub 条款](https://finnhub.io/terms-of-service)也要求第三方分享／再分发取得书面许可。Alpha Vantage 默认许可为个人、非商业用途，Marketstack 免费版为 100 次／月、非商业用途。
 
 这些免费个人 API 不能未经确认就作为全球公共网站的统一行情来源。本项目未注册或启用新的股票免费 API，也没有购买任何行情套餐。公开服务可评估用户自行导入记录，或者联系供应商确认可公开展示的低额度／延迟数据授权；改动产品方式需要用户确认。
+
+Brevo 进度：邮箱和新设备验证已通过，发件地址 wanggq908@gmail.com 在后台显示 Verified，SMTP 主机与登录名已确认。生成 SMTP Key 需要新的六位邮箱验证码，目前尚未取得密钥，未将未验证配置应用到 Supabase。后台还提示首次发信前需要手机验证。
