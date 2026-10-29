@@ -7,7 +7,7 @@
 - `market-data` 后端函数已更新，历史报价包含开盘价，缓存版本已变更。
 - Cloudflare Pages `stock-atlas` 项目已存在。旧 `https://demo.stock-atlas.pages.dev` 演示仍需替换；当前会话 Cloudflare 工具不可用，未能上传本次改版。
 - 当前改版预览可在本机 `http://127.0.0.1:4180/` 查看；示例历史快照，非实时行情。
-- GitHub 仓库连接、Twelve Data Key、生产邮件和回跳地址仍需配置。
+- GitHub 已上传至 https://github.com/EdwardWGQ/stock-price-record；Twelve Data Key、生产邮件和回跳地址仍需配置。
 
 本机 VIX／VXN 缓存键错误已修复，两个指数改用 Cboe 官方日线；主图高度已调整并添加分析／明细跳转入口。
 
@@ -16,3 +16,5 @@ Supabase 市场函数 v4 已部署：新增 Cboe VIX／VXN 官方日线接口，
 GitHub Actions 检查后自动部署流程已准备；尚未上传远程仓库。Cloudflare CLI 的账号授权未完成并已超时，GitHub 账号授权尚未完成，仓库链接未提供。Twelve Data Key 与 SMTP／Auth 回跳仍未配置。
 
 GitHub 仓库已确认：https://github.com/EdwardWGQ/stock-price-record；当前账号具有写入权限，仓库原有 MIT 许可证保留。Cloudflare 正在等待设备授权。
+
+GitHub 上传完成：main 提交 b644d8ed910f3d30244ef15eb208151416e50128，原有 MIT LICENSE 保留。Actions run 40852301280 的 verify 全部通过。部署变量已写入；CLOUDFLARE_DEPLOY_ENABLED 保持 false，等待 Pages 写入 token 后启用。Cloudflare CLI 登录因授权服务器网络超时失败，在线页面尚未替换。
