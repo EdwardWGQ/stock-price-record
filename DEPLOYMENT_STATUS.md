@@ -30,3 +30,8 @@ Auth 修复已手工发布 Cloudflare 生产部署 c1d5acc0。线上无效恢复
 
 
 Cloudflare 专用部署 Token 已配置到本机忽略文件及 GitHub Actions 加密 Secret。CLOUDFLARE_DEPLOY_ENABLED 已启用，使用 GitHub Actions 在 main 更新且验证通过后部署；不依赖报错的 Cloudflare GitHub 应用安装。正在执行首次自动部署验收。令牌不在源码中。
+
+
+自动部署验收成功：GitHub Actions run 40858041816 的 verify 和 deploy 均成功；main 提交 84069fbac671486fe103d617bf6276f2236f8308 自动发布到 Cloudflare，生产部署短 ID 5f168489。正式网站 HTTP 200、登录界面和页面脚本验证通过；演示 19 只股票和两个指数面板正常。后续 main 推送在验证通过后自动部署。
+
+剩余服务配置：Twelve Data 账户／Key 和正式 SMTP 账户／凭据仍未创建。自动部署 Token 已完成配置，不再阻塞网站代码发布。
