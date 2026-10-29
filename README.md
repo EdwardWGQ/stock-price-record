@@ -4,6 +4,104 @@ US stock price tracker with market fear sentiment analysis.
 
 本项目采用原来的黑底股票监控网站，采用原始页面布局：橙色标题、多只股票累计收益曲线、右侧自选股、VIX／VXN 波动率区域及下方明细表。前端使用 React + TypeScript + Chart.js，Cloudflare Pages 托管；后端使用 Supabase。
 
+## 第一次使用：直接打开网站
+
+如果只是使用网站，不需要下载源码，也不需要安装 Node.js 或 Python。
+
+1. 打开 **[正式网站](https://stock-atlas.pages.dev/)**。
+2. 首次使用点击 **“创建账户”**。
+3. 输入自己的邮箱和密码。密码至少 **12 位**，包含大小写字母、数字和符号。
+4. 查收确认邮件，点击 **“验证邮箱”** 链接；未收到时检查垃圾邮件。
+5. 邮箱验证后登录，在顶部搜索股票代码（例如 `AAPL`），选择股票加入自选。
+6. 点击顶部 **“修改起始日期”** 可统一修改；点击股票旁的 **“◷”** 可单独修改。先查询预览，再确认保存。
+7. 忘记密码时点击 **“重置密码”**，填写注册邮箱，打开最新重置邮件设置新密码。不要把密码告诉别人。
+
+新账户的自选股最初为空，需要自行添加。每个账户的数据独立保存。当前发信使用免费套餐，受每日和每小时额度限制；邮件可能延迟。
+
+如果想不注册就看界面，打开 **[在线演示](https://demo.stock-atlas.pages.dev/)**。演示使用历史快照，修改仅保留在当前页面，刷新后重置，不是实时行情。
+
+## 从 GitHub 下载，在另一台 Windows 电脑运行演示版
+
+### 1. 安装环境
+
+- 使用普通 Windows 电脑和现代浏览器，例如 Edge 或 Chrome。
+- 到 **[Node.js 官网](https://nodejs.org/)** 安装 **Node.js 24 LTS**，保持默认安装选项。npm 会一同安装。
+- 首次下载源码和安装依赖需要联网。这个 GitHub 项目使用 TypeScript／React，运行演示不需要安装 Python，也不需要注册 Supabase。
+
+安装完成后重新打开终端，分别输入下面两条命令检查：
+
+```powershell
+node --version
+npm.cmd --version
+```
+
+第一条应显示 `v24...`，第二条显示 npm 版本号。
+
+### 2. 下载并解压
+
+1. 打开 **[GitHub 仓库](https://github.com/EdwardWGQ/stock-price-record)**。
+2. 点击绿色 **Code（代码）** → **Download ZIP（下载 ZIP）**。
+3. 下载后右键 ZIP → **全部解压缩**，例如解压到 `D:\stock-price-record-main`。
+4. 打开解压后的文件夹，确认能看到 `package.json`（Windows 可能显示为 `package`）、`src` 和 `README.md`。如果又有一层同名文件夹，进入有这些文件的那一层。
+
+**不要在 ZIP 的预览窗口里运行，也不要双击 `index.html`。** 文件地址栏显示普通文件夹路径、且不含 `.zip`，通常说明已经解压。
+
+### 3. 在项目文件夹打开 PowerShell
+
+在文件夹空白处右键 → **在终端中打开**，选择 PowerShell。
+
+也可以在资源管理器地址栏输入 `powershell` 后按 Enter。终端当前目录应是含 `package.json` 的项目文件夹。如果不是，先输入（用自己的实际解压路径替换）：
+
+```powershell
+cd "D:\stock-price-record-main"
+```
+
+### 4. 首次安装依赖
+
+输入下面命令，等待完成再继续：
+
+```powershell
+npm.cmd ci
+```
+
+安装成功后会出现 `node_modules` 文件夹。第一次通常需要几分钟；以后在同一文件夹运行时，不必每次重新安装。
+
+### 5. 启动演示
+
+在同一个 PowerShell 窗口中依次输入：
+
+```powershell
+$env:VITE_DEMO_MODE="true"
+npm.cmd run dev -- --open
+```
+
+浏览器会自动打开。没有自动打开时，查看终端的 **Local** 地址，通常为：
+
+**[http://127.0.0.1:5173/](http://127.0.0.1:5173/)**
+
+若 5173 被占用，程序可能使用 5174 等其他端口，**以终端实际显示的地址为准**。
+
+运行时保持终端窗口打开。停止网站按 **Ctrl+C**；停止后本地网址不能继续使用。
+
+### 6. 下次再启动
+
+在同一项目文件夹打开 PowerShell，重新执行第 5 步的两条命令即可。`$env:VITE_DEMO_MODE` 只在当前终端有效，换新窗口需要重新设置。
+
+### 常见问题
+
+- **找不到 node 或 npm**：安装 Node.js 24 后，关闭并重新打开终端；仍不行可重启电脑。
+- **提示禁止运行 npm.ps1**：按本文使用 `npm.cmd`，不用修改 Windows 执行策略。
+- **提示找不到 package.json**：终端目录不对，进入包含 `package.json` 的那一层文件夹再运行。
+- **提示找不到 vite／依赖**：先运行 `npm.cmd ci`；安装失败时检查网络，成功后再启动。
+- **页面要求配置 Supabase**：演示变量没生效。在启动网站的同一个 PowerShell 窗口设置 `$env:VITE_DEMO_MODE="true"` 后重启。
+- **浏览器打不开／连接被拒绝**：检查终端是否还在运行，使用终端显示的 Local 地址，不要在另一台电脑上把 `127.0.0.1` 当作你的电脑地址。
+- **演示修改刷新后丢失**：这是演示行为；需要持久保存的用户请使用正式网站或配置自己的后端。
+- **没有 start-demo.cmd**：本文命令适用于 GitHub ZIP，无需启动脚本。之前单独提供的本机启动文件不是 GitHub 下载运行的必要条件。
+
+## 自己部署真实版本
+
+下载源码运行演示，不会自动获得站点维护者的 Supabase、SMTP 或 Cloudflare 密钥。要部署自己的真实版本，需要创建自己的 Supabase 项目、应用 `supabase/migrations` 中的迁移、部署 `market-data` 函数、配置 SMTP、Auth 回跳地址和前端变量，并替换部署流程中的项目／账户标识。完整配置见下方章节和 [PROVIDER_SETUP.md](PROVIDER_SETUP.md)。源码的 MIT 许可不包含第三方行情数据转载授权。
+
 ## 这次修改
 
 - 顶部“修改起始日期”：统一修改全部股票的起始记录日期。
@@ -16,24 +114,11 @@ US stock price tracker with market fear sentiment analysis.
 - 行情失败、没有历史开盘价、非法日期时保持原记录，不猜测或补造价格。
 - 保留用户登录和私有数据权限、交易时间编辑、中英文、导出等已实现功能，界面统一为黑底监控风格。
 
-## 本机原网站
+## 技术结构
 
-真正运行的原程序是 `D:/stock_server.py`，已经加入相同的起始日期功能并重启。`C:/Users/王国庆/stock_server.py` 已同步更新。原始程序备份留在 `artifacts`，不进入 GitHub。
+仓库中的网页前端使用 TypeScript + React + Chart.js；后端使用 Supabase Edge Functions（TypeScript）和 PostgreSQL（SQL）。`scripts/operations.py` 是维护者配置云端服务的 Python 辅助脚本，演示运行不依赖它。
 
-本机打开 `http://127.0.0.1:8080/`，登录方式沿用原来本机设置。这个 Flask 本地程序不适合作为全球用户共用的生产后端，公网版本使用 Supabase Auth 和独立用户数据。
-
-## 项目运行
-
-需要 Node.js 22.12+，建议 24。
-
-```powershell
-npm ci
-# 本机 .env.local 已配置指定 Supabase；新机器复制示例并填写。
-Copy-Item .env.example .env.local
-npm run dev
-```
-
-要看演示，设置 `VITE_DEMO_MODE=true`。演示使用原网站的 19 只股票历史快照和示例日开盘价；演示日开盘价仅用于体验日期编辑，不能用于投资决策。生产环境必须 `VITE_DEMO_MODE=false`。
+早期 Python／Flask 本机程序不是此仓库的启动入口。GitHub 下载者请按上面的 PowerShell 步骤运行。
 
 ## GitHub 和 Cloudflare
 
