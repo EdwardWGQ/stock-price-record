@@ -41,6 +41,8 @@ npm run dev
 
 Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.pages.dev`，生产分支 `main`，构建命令 `npm run build`，输出 `dist`，Node.js 24。GitHub 源码仓库：https://github.com/EdwardWGQ/stock-price-record。
 
+正式版已发布：https://stock-atlas.pages.dev/。演示版已更新：https://demo.stock-atlas.pages.dev/，使用明确标注的历史快照。普通股票行情 Key、生产邮件和注册回跳仍待配置。
+
 构建变量：
 
 - `VITE_SUPABASE_URL=https://lkvvqfhohelebvlzwfcp.supabase.co`
@@ -100,3 +102,5 @@ npx deno check --config supabase/functions/market-data/deno.json supabase/functi
 - Variable `CLOUDFLARE_DEPLOY_ENABLED=true`：配置完整后启用部署。
 
 工作流只在 main 的 push 和全部检查通过后部署到 stock-atlas。Cloudflare Git 集成也会自动部署，应选择一种方式，避免重复部署。服务端 Twelve Data Key 和 SMTP 凭据只留在 Supabase 后端，不能放进前端构建变量。
+
+当前 Cloudflare GitHub 应用连接报错 8000011，自动部署尚未启用；已通过 Wrangler 手工部署本次生产和演示页面。

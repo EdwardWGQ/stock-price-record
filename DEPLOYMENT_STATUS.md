@@ -1,20 +1,15 @@
-# 部署交接 · 2026-10-29
+# 部署状态 · 2026-10-29
 
-本次按用户原来的截图重新制作，主页面已恢复 US EQUITY MONITOR 黑底、多线收益曲线、右侧自选股及波动率区域；加入统一及单只股票起始记录日期编辑。
+已发布用户确认的 US EQUITY MONITOR 黑底网站，包含多股票收益曲线、右侧自选股、统一及单只股票起始日期编辑、VIX／VXN 分析和明细表。
 
-- 本机原网站 `http://127.0.0.1:8080/` 已修改，活动程序为 `D:/stock_server.py`，C 盘同名程序已同步。
-- Supabase 项目 `lkvvqfhohelebvlzwfcp`：初始迁移及 `20261029085308_baseline_dates` 已应用。
-- `market-data` 后端函数已更新，历史报价包含开盘价，缓存版本已变更。
-- Cloudflare Pages `stock-atlas` 项目已存在。旧 `https://demo.stock-atlas.pages.dev` 演示仍需替换；当前会话 Cloudflare 工具不可用，未能上传本次改版。
-- 当前改版预览可在本机 `http://127.0.0.1:4180/` 查看；示例历史快照，非实时行情。
-- GitHub 已上传至 https://github.com/EdwardWGQ/stock-price-record；Twelve Data Key、生产邮件和回跳地址仍需配置。
+- GitHub：https://github.com/EdwardWGQ/stock-price-record，代码已上传 main，原有 MIT LICENSE 保留。
+- GitHub CI：构建、43 项逻辑／数据库测试、Deno 检查及 5 项浏览器测试通过。
+- Cloudflare 正式版：https://stock-atlas.pages.dev/，已部署生产构建，演示关闭，连接 Supabase。
+- Cloudflare 演示版：https://demo.stock-atlas.pages.dev/，已替换为新版黑底页面，19 只股票历史快照，明确标注非实时行情。
+- 本次生产部署 ID：f0ef4b69（短 ID，详见 Cloudflare Dashboard）；预览部署短 ID aacdc435。
+- Supabase 项目：lkvvqfhohelebvlzwfcp，已应用初始及 baseline_dates 迁移；market-data v4 已部署，包含 Cboe VIX／VXN 官方日线接口和缓存。
+- 线上验证：两个网站 HTTP 200、无页面脚本异常；演示 19 只股票和两个指数面板正常；单股起始日期编辑、周末顺延显示、手机 390px 页面已验证。
+- GitHub 自动部署：尚未启用。Cloudflare Git source 连接返回 8000011，提示 Cloudflare Pages Git installation 内部异常，需要重新授权其 GitHub 应用；Actions 替代方案需要专用 Pages API token。
+- 待配置：普通股票 Twelve Data API Key 和授权套餐；正式 SMTP、Supabase Site URL／Redirect URLs，并验证真实邮件注册、登录、密码重置。
 
-本机 VIX／VXN 缓存键错误已修复，两个指数改用 Cboe 官方日线；主图高度已调整并添加分析／明细跳转入口。
-
-Supabase 市场函数 v4 已部署：新增 Cboe VIX／VXN 官方日线接口，独立于普通股票行情 Key。前端生产版本同步调用并展示来源和数据日期。
-
-GitHub Actions 检查后自动部署流程已准备；尚未上传远程仓库。Cloudflare CLI 的账号授权未完成并已超时，GitHub 账号授权尚未完成，仓库链接未提供。Twelve Data Key 与 SMTP／Auth 回跳仍未配置。
-
-GitHub 仓库已确认：https://github.com/EdwardWGQ/stock-price-record；当前账号具有写入权限，仓库原有 MIT 许可证保留。Cloudflare 正在等待设备授权。
-
-GitHub 上传完成：main 提交 b644d8ed910f3d30244ef15eb208151416e50128，原有 MIT LICENSE 保留。Actions run 40852301280 的 verify 全部通过。部署变量已写入；CLOUDFLARE_DEPLOY_ENABLED 保持 false，等待 Pages 写入 token 后启用。Cloudflare CLI 登录因授权服务器网络超时失败，在线页面尚未替换。
+正式版网页可访问，但真实普通股票行情、生产邮件和完整线上负载验收尚未完成，不能宣称已完成全球生产服务。
