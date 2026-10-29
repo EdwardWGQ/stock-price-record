@@ -1,6 +1,8 @@
-# US EQUITY MONITOR
+# stock-price-record · US EQUITY MONITOR
 
-本项目已重新改成用户原来的黑底股票监控网站，采用原始页面布局：橙色标题、多只股票累计收益曲线、右侧自选股、VIX／VXN 波动率区域及下方明细表。前端使用 React + TypeScript + Chart.js，Cloudflare Pages 托管；后端使用 Supabase。
+US stock price tracker with market fear sentiment analysis.
+
+本项目采用原来的黑底股票监控网站，采用原始页面布局：橙色标题、多只股票累计收益曲线、右侧自选股、VIX／VXN 波动率区域及下方明细表。前端使用 React + TypeScript + Chart.js，Cloudflare Pages 托管；后端使用 Supabase。
 
 ## 这次修改
 
@@ -37,7 +39,7 @@ npm run dev
 
 上传这个项目的源码，提交 package-lock.json 和后端 deno.lock。`.gitignore` 已排除 `.env.local`、依赖、构建目录和测试图片；不要上传服务器秘密密钥。
 
-Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.pages.dev`，生产分支 `main`，构建命令 `npm run build`，输出 `dist`，Node.js 24。GitHub 仓库尚未连接。
+Cloudflare Pages 的 `stock-atlas` 项目已创建，默认域名 `stock-atlas.pages.dev`，生产分支 `main`，构建命令 `npm run build`，输出 `dist`，Node.js 24。GitHub 源码仓库：https://github.com/EdwardWGQ/stock-price-record。
 
 构建变量：
 

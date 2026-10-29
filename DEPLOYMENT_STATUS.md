@@ -14,3 +14,5 @@
 Supabase 市场函数 v4 已部署：新增 Cboe VIX／VXN 官方日线接口，独立于普通股票行情 Key。前端生产版本同步调用并展示来源和数据日期。
 
 GitHub Actions 检查后自动部署流程已准备；尚未上传远程仓库。Cloudflare CLI 的账号授权未完成并已超时，GitHub 账号授权尚未完成，仓库链接未提供。Twelve Data Key 与 SMTP／Auth 回跳仍未配置。
+
+GitHub 仓库已确认：https://github.com/EdwardWGQ/stock-price-record；当前账号具有写入权限，仓库原有 MIT 许可证保留。Cloudflare 正在等待设备授权。
