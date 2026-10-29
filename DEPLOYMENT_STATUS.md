@@ -27,3 +27,6 @@
 Auth 修复已手工发布 Cloudflare 生产部署 c1d5acc0。线上无效恢复链接提示及 URL 清理验证通过。GitHub Actions 40857346229 verify 成功（49 项逻辑测试、5 项浏览器测试）；部署仍因专用 Pages Token 未配置而跳过。
 
 需要账户本人完成：Cloudflare 仅当前账户 Pages Edit API Token；Twelve Data 注册／API Key 和公开行情授权；SMTP 注册及发件人验证。已创建忽略上传的本机 `.env.operations.local` 供填写。已完成的 Auth 配置不依赖这些新服务。
+
+
+Cloudflare 专用部署 Token 已配置到本机忽略文件及 GitHub Actions 加密 Secret。CLOUDFLARE_DEPLOY_ENABLED 已启用，使用 GitHub Actions 在 main 更新且验证通过后部署；不依赖报错的 Cloudflare GitHub 应用安装。正在执行首次自动部署验收。令牌不在源码中。

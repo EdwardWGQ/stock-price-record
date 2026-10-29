@@ -103,7 +103,7 @@ npx deno check --config supabase/functions/market-data/deno.json supabase/functi
 
 工作流只在 main 的 push 和全部检查通过后部署到 stock-atlas。Cloudflare Git 集成也会自动部署，应选择一种方式，避免重复部署。服务端 Twelve Data Key 和 SMTP 凭据只留在 Supabase 后端，不能放进前端构建变量。
 
-当前 Cloudflare GitHub 应用连接报错 8000011，自动部署尚未启用；已通过 Wrangler 手工部署本次生产和演示页面。
+Cloudflare GitHub 应用连接报错 8000011，目前使用 GitHub Actions 作为部署方式。专用 Pages Token 已加密配置，自动部署已启用；main 更新在验证通过后发布到正式站点。
 
 ## 生产配置修复
 
