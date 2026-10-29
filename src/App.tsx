@@ -15,6 +15,7 @@ import {RecordDialog} from './components/RecordDialog';
 import {Auth} from './components/Auth';
 import volatilitySnapshot from './lib/volatility-snapshot.json';
 import {emailLink,cleanAuthAddress,processEmailLink} from './lib/auth-links';
+import {saveExportFile} from './lib/export-file';
 const indexes:Instrument[]=[{symbol:'VIX',name:'VIX',exchange:'CBOE',currency:'USD',timezone:'America/New_York'},{symbol:'VXN',name:'VXN',exchange:'CBOE',currency:'USD',timezone:'America/New_York'}];
 export default function App(){
  const [language,setLanguage]=useState<Language>('zh'),zh=language==='zh',t=translator(language);
@@ -64,7 +65,7 @@ export default function App(){
  }catch(err){setNotice(errorText(err,language));}finally{workLock.current=false;setBusy(false);}}
  async function remove(item:WatchItem|Trade){if(busy||!confirm(`${zh?'删除':'Remove'} ${item.symbol}?`))return;const e=epoch.current;setBusy(true);try{if(!demoMode)await api.deleteRecord('baseline_at'in item?'watchlist':'trades',item.id,item.revision);if(e!==epoch.current)return;if('baseline_at'in item){setItems(p=>p.filter(i=>i.id!==item.id));if(selected===item.id)setSelected(null);}else setTrades(p=>p.filter(i=>i.id!==item.id));}catch(err){setNotice(errorText(err,language));}finally{setBusy(false);}}
  async function saveTrade(value:WatchInput|TradeInput,revision?:number){if('baseline_at'in value)throw new Error('VALIDATION');const e=epoch.current;const saved=demoMode?{...value,user_id:'demo',revision:(revision??0)+1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}:await api.saveTrade(value,user!.id,revision);if(e===epoch.current)setTrades(p=>(revision===undefined?[saved,...p]:p.map(i=>i.id===saved.id?saved:i)).sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)));}
- async function exportData(){try{const data=demoMode?{version:1,exported_at:new Date().toISOString(),watchlist:items,trades}:await api.exportAll();const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='us-equity-monitor.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){setNotice(errorText(err,language));}}
+ async function exportData(){try{const data=demoMode?{version:1,exported_at:new Date().toISOString(),watchlist:items,trades}:await api.exportAll();await saveExportFile(data);}catch(err){setNotice(errorText(err,language));}}
  function net(item:WatchItem){return quotes[item.id]?percent(quotes[item.id].price,item.baseline_price):null;}function cls(value:string|null){return value===null||Number(value)===0?'zero':Number(value)>0?'up':'down';}
  const alerts=items.filter(i=>net(i)!==null&&new Decimal(net(i)!).lte(i.alert_percent)),workspace=demoMode||!!user&&!recovery;
  const latest=Object.values(quotes).map(q=>q.fetched_at).sort().at(-1),qs=Object.values(quotes),marketStatus=demoMode?'SNAPSHOT':qs.some(q=>q.market_open===true)?'LIVE':qs.length&&qs.every(q=>q.market_open===false)?'CLOSED':'--';

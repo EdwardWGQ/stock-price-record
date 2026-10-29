@@ -1,0 +1,64 @@
+{
+  "name": "us-equity-monitor-desktop",
+  "version": "1.0.0",
+  "description": "Windows desktop client for US Equity Monitor",
+  "author": "EdwardWGQ",
+  "license": "MIT",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test policy.test.cjs export-policy.test.cjs",
+    "pack": "node build.cjs --dir",
+    "dist": "node build.cjs"
+  },
+  "build": {
+    "appId": "com.edwardwgq.usequitymonitor",
+    "productName": "US Equity Monitor",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.cjs",
+      "policy.cjs",
+      "preload.cjs",
+      "export-policy.cjs",
+      "offline.html",
+      "assets/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico",
+      "signExecutable": false,
+      "artifactName": "US-Equity-Monitor-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "packElevateHelper": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "US Equity Monitor",
+      "installerLanguages": [
+        "en_US",
+        "zh_CN"
+      ],
+      "artifactName": "US-Equity-Monitor-${version}-${arch}-nsis.${ext}"
+    },
+    "portable": {
+      "requestExecutionLevel": "user",
+      "artifactName": "US-Equity-Monitor-${version}-${arch}-portable.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  }
+}
