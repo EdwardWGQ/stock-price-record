@@ -14,6 +14,7 @@ import {BaselineDialog} from './components/BaselineDialog';
 import {RecordDialog} from './components/RecordDialog';
 import {Auth} from './components/Auth';
 import volatilitySnapshot from './lib/volatility-snapshot.json';
+import {emailLink,cleanAuthAddress,processEmailLink} from './lib/auth-links';
 const indexes:Instrument[]=[{symbol:'VIX',name:'VIX',exchange:'CBOE',currency:'USD',timezone:'America/New_York'},{symbol:'VXN',name:'VXN',exchange:'CBOE',currency:'USD',timezone:'America/New_York'}];
 export default function App(){
  const [language,setLanguage]=useState<Language>('zh'),zh=language==='zh',t=translator(language);
@@ -28,7 +29,22 @@ export default function App(){
  const [baselineEdit,setBaselineEdit]=useState<WatchItem[]|null>(null),[tradeEdit,setTradeEdit]=useState<{existing?:Trade}|null>(null);
  const epoch=useRef(0),workLock=useRef(false),active=useRef<string|null>(null),refreshLock=useRef(false);
  useEffect(()=>{document.title='US EQUITY MONITOR';document.documentElement.lang=zh?'zh-CN':'en';},[zh]);
- useEffect(()=>{if(!supabase)return;let live=true;void supabase.auth.getSession().then(({data})=>{if(live){setUser(data.session?.user??null);setReady(true);}});const sub=supabase.auth.onAuthStateChange((event,session)=>{const id=session?.user.id??null;if(id!==active.current){epoch.current++;setItems([]);setTrades([]);setHistories({});setQuotes({});setErrors({});setVolatility({});setVolMeta({});setBaselineEdit(null);setTradeEdit(null);}active.current=id;setUser(session?.user??null);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);});return()=>{live=false;sub.data.subscription.unsubscribe();};},[]);
+ useEffect(()=>{if(!supabase)return;let live=true;void (async()=>{
+ try{
+  const link=emailLink(location.href);
+  if(link){
+   const processed=await processEmailLink(location.href,async value=>{const {error}=await supabase!.auth.verifyOtp(value);if(error)throw error;});
+   const {data}=await supabase!.auth.getSession();
+   if(live){setUser(data.session?.user??null);setRecovery(processed.recovery);}
+   history.replaceState(null,'',cleanAuthAddress(location.href));
+  }else{
+   const {data,error}=await supabase!.auth.getSession();
+   if(error)throw error;
+   if(live)setUser(data.session?.user??null);
+  }
+ }catch{if(live)setNotice(zh?'验证链接无效或已过期。请重新发送确认邮件或申请重置密码。':'Verification link is invalid or expired. Request a new link.');history.replaceState(null,'',cleanAuthAddress(location.href));}
+ finally{if(live)setReady(true);}
+})();const sub=supabase.auth.onAuthStateChange((event,session)=>{const id=session?.user.id??null;if(id!==active.current){epoch.current++;setItems([]);setTrades([]);setHistories({});setQuotes({});setErrors({});setVolatility({});setVolMeta({});setBaselineEdit(null);setTradeEdit(null);}active.current=id;setUser(session?.user??null);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);});return()=>{live=false;sub.data.subscription.unsubscribe();};},[]);
  async function reload(){if(demoMode)return;const e=++epoch.current;setBusy(true);try{const r=await api.loadRecords();if(e!==epoch.current)return;setItems(r.watchlist);setTrades(r.trades);setDate(r.profile?.baseline_date??'2026-06-01');}catch(err){setNotice(errorText(err,language));}finally{setBusy(false);}}
  useEffect(()=>{if(user&&!recovery)void reload();},[user?.id,recovery]);
  async function refresh(){if(refreshLock.current||demoMode||!user)return;refreshLock.current=true;const e=epoch.current;setBusy(true);try{for(const item of items){if(e!==epoch.current)break;try{const q=await api.fetchQuote(item);if(q.symbol!==item.symbol||q.exchange!==item.exchange||q.currency!==item.currency)throw new Error('IDENTITY_MISMATCH');const r=await api.fetchHistory(item,item.baseline_date??item.baseline_at.slice(0,10));if(e!==epoch.current)break;setQuotes(p=>({...p,[item.id]:q}));setHistories(p=>({...p,[item.id]:r.bars}));setErrors(p=>{const n={...p};delete n[item.id];return n;});}catch(err){if(e===epoch.current)setErrors(p=>({...p,[item.id]:errorText(err,language)}));}}

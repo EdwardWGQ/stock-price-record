@@ -11,7 +11,7 @@ export function Auth({ language, recovery, onRecovered }: { language: Language; 
     event.preventDefault(); if (!supabase || busy) return; setBusy(true); setMessage('');
     try {
       if ((recovery || mode === 'signup') && !strong) { setMessage(t('authPassword')); return; }
-      const redirect = `${location.origin}/`;
+      const redirect = `${location.origin}/auth/callback`;
       const result = recovery ? await supabase.auth.updateUser({ password }) : mode === 'signin' ? await supabase.auth.signInWithPassword({ email, password }) : mode === 'signup' ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect } }) : await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirect });
       if (result.error) { setMessage(language === 'zh' ? `登录服务：${result.error.message}` : result.error.message); return; }
       if (recovery) { onRecovered(); setMessage(t('saved')); }

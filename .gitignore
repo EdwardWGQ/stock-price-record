@@ -12,3 +12,5 @@ playwright-report/
 *.zip
 artifacts/
 *.tsbuildinfo
+__pycache__/
+*.pyc
