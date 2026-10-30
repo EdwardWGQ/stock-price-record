@@ -18,8 +18,8 @@ additional_redirect_urls = ["https://stock-atlas.pages.dev/", "https://stock-atl
 jwt_expiry = 3600
 enable_signup = true
 enable_anonymous_sign_ins = false
-minimum_password_length = 12
-password_requirements = "lower_upper_letters_digits_symbols"
+minimum_password_length = 6
+password_requirements = ""
 
 [auth.email]
 enable_signup = true

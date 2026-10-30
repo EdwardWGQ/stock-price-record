@@ -84,8 +84,7 @@ def auth_config(config, custom_templates=False):
     token=supabase_token(config)
     body={'site_url':SITE,'uri_allow_list':','.join([SITE+'/',SITE+'/auth/callback',
         'http://127.0.0.1:5173/','http://127.0.0.1:5173/auth/callback']),
-        'password_min_length':12,'password_required_characters':
-        'abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789:!@#$%^&*()_+-=[]{};\'\\\\:"|<>?,./`~',
+        'password_min_length':6,'password_required_characters':'',
         'mailer_autoconfirm':False,'external_anonymous_users_enabled':False,
         'mailer_secure_email_change_enabled':True}
     if custom_templates:
@@ -96,7 +95,7 @@ def auth_config(config, custom_templates=False):
     endpoint=f'https://api.supabase.com/v1/projects/{PROJECT}/config/auth'
     request(endpoint,token,'PATCH',body)
     verified=request(endpoint,token)
-    for key in ['site_url','uri_allow_list','password_min_length','mailer_autoconfirm','external_anonymous_users_enabled']:
+    for key in ['site_url','uri_allow_list','password_min_length','password_required_characters','mailer_autoconfirm','external_anonymous_users_enabled']:
         if verified.get(key)!=body[key]: raise RuntimeError('Auth config verification failed: '+key)
     if custom_templates and '/auth/callback?token_hash=' not in (verified.get('mailer_templates_recovery_content') or ''):
         raise RuntimeError('Email template verification failed.')
