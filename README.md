@@ -8,7 +8,7 @@ US stock price tracker with market fear sentiment analysis.
 
 如果只是使用网站，不需要下载源码，也不需要安装 Node.js 或 Python。
 
-Windows 用户也可使用桌面安装版或免安装版，无需安装开发环境。使用方法、联网要求和重新构建步骤见 [DESKTOP.md](DESKTOP.md)。
+Windows 用户也可直接从 **[桌面版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/tag/desktop-v1.0.0)** 的 **Assets（资源）** 下载 EXE。安装版名称含 `nsis`，免安装版名称含 `portable`；无需安装 Python 或 Node.js。不要把 `Source code (zip)` 当成安装包。使用方法、联网要求和重新构建步骤见 [DESKTOP.md](DESKTOP.md)。
 
 1. 打开 **[正式网站](https://stock-atlas.pages.dev/)**。
 2. 首次使用点击 **“创建账户”**。

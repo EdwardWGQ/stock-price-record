@@ -6,6 +6,8 @@ US Equity Monitor 桌面版使用独立窗口打开正式网站，可用已有�
 
 支持 Windows 10／11 的 64 位电脑。
 
+打开 **[桌面版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/tag/desktop-v1.0.0)**，在 **Assets（资源）** 中下载下面的 EXE 文件。GitHub 自动生成的 `Source code (zip)` 和 `Source code (tar.gz)` 是开发源码，普通用户无需下载。
+
 - 安装版：运行 `US-Equity-Monitor-1.0.0-x64-nsis.exe`，按向导安装，可选择安装路径，创建桌面及开始菜单快捷方式。
 - 免安装版：直接运行 `US-Equity-Monitor-1.0.0-x64-portable.exe`，首次打开可能需要等待解包。
 - 无需安装 Node.js、Python 或下载项目源码。
