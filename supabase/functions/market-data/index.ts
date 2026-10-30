@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { requestSchema, normalizeQuote, normalizeHistory, searchResults } from './core.ts';
-import { configuredOrigins } from './config.ts';
+import { configuredOrigins, permittedOrigin } from './config.ts';
 import { officialVolatility } from './volatility.ts';
 import { fetchChinaSearch,fetchChinaQuote,fetchChinaHistory } from './china.ts';
 
@@ -20,14 +20,14 @@ async function rpc<T>(name: string, params: Record<string, unknown>): Promise<T>
 async function allowed(key: string, limit: number) { return rpc<boolean>('market_rate_limit', { p_key: key, p_limit: limit }); }
 function response(value: unknown, status: number, origin: string | null) {
   const headers: Record<string,string> = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Vary': 'Origin' };
-  if (origin && allowedOrigins.includes(origin)) { headers['Access-Control-Allow-Origin'] = origin; headers['Access-Control-Allow-Headers'] = 'authorization, apikey, content-type, x-client-info'; headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'; }
+  if (origin && permittedOrigin(origin,allowedOrigins)) { headers['Access-Control-Allow-Origin'] = origin; headers['Access-Control-Allow-Headers'] = 'authorization, apikey, content-type, x-client-info'; headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'; }
   if (status === 429) headers['Retry-After'] = '60';
   return new Response(JSON.stringify(value), { status, headers });
 }
 
 Deno.serve(async req => {
   const origin = req.headers.get('Origin');
-  if (origin && !allowedOrigins.includes(origin)) return response({ error: 'ORIGIN' }, 403, null);
+  if (origin && !permittedOrigin(origin,allowedOrigins)) return response({ error: 'ORIGIN' }, 403, null);
   if (req.method === 'OPTIONS') return response({}, 200, origin);
   if (req.method !== 'POST') return response({ error: 'METHOD' }, 405, origin);
   if (Number(req.headers.get('content-length')) > 8192) return response({ error: 'BODY_LIMIT' }, 413, origin);
