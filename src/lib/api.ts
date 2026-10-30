@@ -50,7 +50,7 @@ export async function exportAll() {
   return { version: 1, exported_at: new Date().toISOString(), watchlist, trades };
 }
 export async function marketRequest<T>(body: Record<string, unknown>): Promise<T> {
-  const result = await client().functions.invoke('market-data', { body });
+  const result = await client().functions.invoke('market-data', { body, timeout: 25000 });
   if (result.error) {
     const context = (result.error as { context?: Response }).context;
     if (context instanceof Response) { const detail = await context.json().catch(() => null); throw new Error(detail?.error ?? 'MARKET_UNAVAILABLE'); }
