@@ -17,6 +17,7 @@ PROJECT = 'lkvvqfhohelebvlzwfcp'
 REPO = 'EdwardWGQ/stock-price-record'
 ACCOUNT = '1d90b9c72268f9325c5a4c3d2e49196f'
 SITE = 'https://stock-atlas.pages.dev'
+MARKET_ORIGINS = ','.join([SITE,'https://312901e8.stock-atlas.pages.dev'])
 
 def settings():
     result = dict(os.environ)
@@ -122,12 +123,12 @@ def market(config):
     if not key: raise RuntimeError('TWELVE_DATA_API_KEY is missing. Register your provider first.')
     request(f'https://api.supabase.com/v1/projects/{PROJECT}/secrets',supabase_token(config),'POST',
         [{'name':'TWELVE_DATA_API_KEY','value':key},{'name':'MARKET_PROVIDER','value':'twelve-data'},
-         {'name':'ALLOWED_ORIGINS','value':SITE}])
+         {'name':'ALLOWED_ORIGINS','value':MARKET_ORIGINS}])
     print('Market API key saved to Supabase Edge Function secrets; never included in frontend code.')
 
 def china_market(config):
     request(f'https://api.supabase.com/v1/projects/{PROJECT}/secrets',supabase_token(config),'POST',
-        [{'name':'MARKET_PROVIDER','value':'china-public'},{'name':'ALLOWED_ORIGINS','value':SITE}])
+        [{'name':'MARKET_PROVIDER','value':'china-public'},{'name':'ALLOWED_ORIGINS','value':MARKET_ORIGINS}])
     print('Domestic public web quote adapter selected. No API payment or subscription created.')
 
 def deploy(config):

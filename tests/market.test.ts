@@ -6,9 +6,11 @@ const now = '2026-10-29T14:00:00Z';
 const raw = { ...selected, close:'0.12345678', percent_change:'1.25', timestamp: new Date(now).getTime()/1000, is_market_open:true };
 describe('provider validation', () => {
   it('allows only the deployed origin by default and honors an explicit override', () => {
-    expect(configuredOrigins('')).toEqual(['https://stock-atlas.pages.dev']);
+    expect(configuredOrigins('')).toEqual(['https://stock-atlas.pages.dev','https://312901e8.stock-atlas.pages.dev']);
     expect(configuredOrigins('https://stocks.example.com, https://test.example.com')).toEqual(['https://stocks.example.com','https://test.example.com']);
     expect(configuredOrigins('')).not.toContain('https://evil.example.com');
+    expect(configuredOrigins('')).not.toContain('https://stock-atlas.pages.dev.evil.example.com');
+    expect(configuredOrigins('')).not.toContain('https://untrusted.stock-atlas.pages.dev');
   });
   it('preserves decimal strings and quote timestamp', () => { const q = normalizeQuote(raw,selected,now); expect(q.price).toBe('0.12345678'); expect(q.as_of).toBe(now.replace('Z','.000Z')); expect(q.stale).toBe(false); });
   it('rejects exchange and currency collisions', () => { expect(() => normalizeQuote({ ...raw, exchange:'LSE' },selected,now)).toThrow('IDENTITY_MISMATCH'); expect(() => normalizeQuote({ ...raw, currency:'EUR' },selected,now)).toThrow('IDENTITY_MISMATCH'); });
