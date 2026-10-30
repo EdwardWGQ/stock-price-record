@@ -19,13 +19,16 @@ test('restores the original black monitor with 19 curves and watchlist',async({p
  await page.screenshot({path:'artifacts/restored-mobile.png',fullPage:true});
 });
 
-test('keeps stock identifiers unchanged when switching language or translating the page',async({page})=>{
+test('uses the original fixed labels and keeps stock identifiers untranslated',async({page})=>{
  await expect(page.locator('html')).toHaveAttribute('translate','no');
  await expect(page.locator('meta[name="google"]')).toHaveAttribute('content','notranslate');
  const symbols=await page.locator('.wl-row .sym').allTextContents();
  for(const symbol of ['YUM','HOOD','VOO','GOOGL'])expect(symbols).toContain(symbol);
- await page.getByRole('button',{name:'EN',exact:true}).click();
- await expect(page.getByPlaceholder('Search stocks...',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:/^(EN|中文)$/})).toHaveCount(0);
+ await expect(page.getByRole('link',{name:'US EQUITY MONITOR',exact:true})).toBeVisible();
+ await expect(page.locator('.top-date')).toContainText('START');
+ await expect(page.getByRole('link',{name:'VIX / VXN 分析',exact:true})).toBeVisible();
+ await expect(page.getByPlaceholder('搜索股票',{exact:true})).toBeVisible();
  // Model a translator that obeys the standard inherited translate attribute.
  const changed=await page.evaluate(()=>{
   const replacements:Record<string,string>={YUM:'好吃',HOOD:'胡德',VOO:'呸',GOOGL:'谷歌搜索'};
@@ -38,8 +41,6 @@ test('keeps stock identifiers unchanged when switching language or translating t
  });
  expect(changed).toBe(0);
  expect(await page.locator('.wl-row .sym').allTextContents()).toEqual(symbols);
- await page.getByRole('button',{name:'中文',exact:true}).click();
- await expect(page.getByPlaceholder('搜索股票',{exact:true})).toBeVisible();
  expect(await page.locator('.wl-row .sym').allTextContents()).toEqual(symbols);
  await page.getByPlaceholder('搜索股票',{exact:true}).fill('YUM');
  await expect(page.locator('.search-dropdown b')).toHaveText('YUM');
