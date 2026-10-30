@@ -87,3 +87,65 @@ test('keeps a successful quote visible when history fails',async({page})=>{
  await expect(page.locator('.wl-row .net')).toHaveText('+5.0%');
  await expect(page.locator('.chart-empty')).toHaveCount(1);
 });
+
+test('deletes a stock during background refresh and keeps it deleted on reload',async({page})=>{
+ await signedIn(page,[stock]);
+ let records=[stock],deletes=0;
+ await page.route('https://test-project.supabase.co/rest/v1/watchlist**',async route=>{
+  if(route.request().method()==='DELETE') {
+   deletes++;records=[];
+   await new Promise(resolve=>setTimeout(resolve,200));
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:stock.id}])});
+  }
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(records)});
+ });
+ let releaseQuote!:()=>void;
+ const quotePending=new Promise<void>(resolve=>{releaseQuote=resolve;});
+ await page.route('**/functions/v1/market-data',async route=>{
+  const body=route.request().postDataJSON();
+  if(body.action==='volatility')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
+  await quotePending;
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...stock,price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',market_open:false,source:'test',stale:false})});
+ });
+ // Electron may not provide a native window.confirm; deletion must use the app dialog.
+ await page.addInitScript(()=>{window.confirm=()=>{throw new Error('Native confirmation unavailable');};});
+ await page.goto('/');
+ await expect(page.locator('.top-info button').first()).toHaveText('…');
+ const remove=page.getByRole('button',{name:'删除 AAPL',exact:true});
+ await expect(remove).toBeEnabled();
+ await remove.click();
+ await expect(page.getByRole('dialog',{name:'删除自选股票'})).toContainText('AAPL');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ expect(deletes).toBe(0);
+ await expect(page.locator('.wl-row')).toHaveCount(1);
+ await remove.click();
+ await page.getByRole('button',{name:'确认删除',exact:true}).click();
+ await expect(page.getByRole('button',{name:'正在删除…',exact:true})).toBeDisabled();
+ await expect(page.locator('.wl-row')).toHaveCount(0);
+ await expect(page.getByRole('status')).toContainText('AAPL 已从自选列表删除');
+ expect(deletes).toBe(1);
+ releaseQuote();
+ await page.reload();
+ await expect(page.locator('.wl-header')).toContainText('0 stocks');
+ await expect(page.locator('.wl-row')).toHaveCount(0);
+});
+
+test('keeps the stock visible when deletion fails and lets the user retry',async({page})=>{
+ await signedIn(page,[stock]);
+ await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'}));
+ let failed=true,deletes=0;
+ await page.route('https://test-project.supabase.co/rest/v1/watchlist**',route=>{
+  if(route.request().method()!=='DELETE')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([stock])});
+  deletes++;
+  return route.fulfill({status:failed?503:200,contentType:'application/json',body:JSON.stringify(failed?{message:'unavailable'}:[{id:stock.id}])});
+ });
+ await page.goto('/');
+ await page.getByRole('button',{name:'删除 AAPL detail',exact:true}).click();
+ await page.getByRole('button',{name:'确认删除',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('请求未完成');
+ await expect(page.locator('.wl-row')).toHaveCount(1);
+ failed=false;
+ await page.getByRole('button',{name:'确认删除',exact:true}).click();
+ await expect(page.locator('.wl-row')).toHaveCount(0);
+ expect(deletes).toBe(2);
+});
