@@ -7,6 +7,7 @@ const { SITE, DEMO, isSite, isExternal } = require('./policy.cjs');
 const { validateExport } = require('./export-policy.cjs');
 const offline = pathToFileURL(path.join(__dirname, 'offline.html')).href;
 const smoke = process.argv.includes('--smoke-test');
+const mac = process.platform === 'darwin';
 let window;
 let showingOffline = false;
 let loadTimer;
@@ -42,8 +43,8 @@ function visit(url = SITE) {
 async function external(url) {
   if (!isExternal(url) || !window) return;
   const { response } = await dialog.showMessageBox(window, {
-    type: 'question', title: '打开外部链接 / Open link',
-    message: '在系统浏览器打开此链接？ / Open this link in your browser?',
+    type: 'question', title: '打开外部链接',
+    message: '在系统浏览器打开此链接？',
     detail: new URL(url).origin,
     buttons: ['打开 / Open', '取消 / Cancel'], defaultId: 1, cancelId: 1,
   });
@@ -91,16 +92,24 @@ function createWindow() {
     if (!smoke || finishing) return;
     finishing = true;
     try {
-      const state = await window.webContents.executeJavaScript(`({
-        title: document.title,
-        body: document.body.innerText.slice(0,1000),
-        demo: !!document.querySelector('.demo-banner'),
-        background: getComputedStyle(document.body).backgroundColor
-      })`);
+      // did-finish-load precedes React's account initialization. Wait for the
+      // intended screen so the packaged executable is tested after rendering.
+      let state;
+      for (let attempt = 0; attempt < 150; attempt++) {
+        state = await window.webContents.executeJavaScript(`({
+          title: document.title,
+          body: document.body.innerText.slice(0,2000),
+          demo: !!document.querySelector('.demo-banner'),
+          login: !!document.querySelector('.auth-card'),
+          background: getComputedStyle(document.body).backgroundColor
+        })`);
+        if (showingOffline || state.demo || state.login) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       process.stdout.write(JSON.stringify({ event: 'desktop-smoke', ...state,
         sandbox: true, nodeIntegration: false }) + '\n');
       const expected = process.argv.includes('--offline') ? showingOffline :
-        !showingOffline && (process.argv.includes('--demo') ? state.demo : state.body.includes('登录'));
+        !showingOffline && (process.argv.includes('--demo') ? state.demo : state.login);
       app.exit(expected ? 0 : 1);
     } catch (error) { process.stderr.write(error.message + '\n'); app.exit(1); }
   });
@@ -108,46 +117,52 @@ function createWindow() {
   session.on('will-download', (_event, item, contents) => {
     if (contents !== window?.webContents || !isSite(contents.getURL())) { item.cancel(); return; }
     item.setSaveDialogOptions({
-      title: '保存导出文件 / Save export',
+      title: '保存导出文件',
       defaultPath: path.join(app.getPath('downloads'), path.basename(item.getFilename())),
     });
     item.once('done', (_event, state) => {
       if (state !== 'completed' && state !== 'cancelled') void dialog.showMessageBox(window, {
-        type: 'error', message: '导出未完成，请重试。 / Export did not complete. Please retry.',
+        type: 'error', message: '导出未完成，请重试。',
       });
     });
   });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: '应用 / App', submenu: [
-      { label: '正式网站 / Live monitor', click: () => visit(SITE) },
-      { label: '演示模式 / Demo', click: () => visit(DEMO) },
+    ...(mac ? [{ label: app.name, submenu: [
+      { role: 'about' }, { type: 'separator' },
+      { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+      { type: 'separator' }, { role: 'quit' },
+    ] }] : []),
+    { label: '应用', submenu: [
+      { label: '正式网站', click: () => visit(SITE) },
+      { label: '演示模式', click: () => visit(DEMO) },
       { type: 'separator' },
-      { label: '退出 / Quit', accelerator: 'Alt+F4', click: () => app.quit() },
+      { label: '退出', accelerator: mac ? 'Command+Q' : 'Alt+F4', click: () => app.quit() },
     ] },
-    { label: '编辑 / Edit', submenu: [
+    { label: '编辑', submenu: [
       { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
       { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' },
     ] },
-    { label: '查看 / View', submenu: [
-      { label: '刷新 / Reload', accelerator: 'Ctrl+R', click: () => showingOffline ? visit() : window.webContents.reload() },
+    { label: '查看', submenu: [
+      { label: '刷新', accelerator: 'CommandOrControl+R', click: () => showingOffline ? visit() : window.webContents.reload() },
+      ...(mac ? [{ role: 'close' }] : []),
       { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' },
     ] },
-    { label: '帮助 / Help', submenu: [
-      { label: '在浏览器打开 / Open in browser', click: () => shell.openExternal(SITE) },
-      { label: '关于 / About', click: () => dialog.showMessageBox(window, {
+    { label: '帮助', submenu: [
+      { label: '在浏览器打开', click: () => shell.openExternal(SITE) },
+      { label: '关于', click: () => dialog.showMessageBox(window, {
         type: 'info', title: 'US Equity Monitor',
         message: `US Equity Monitor ${app.getVersion()}`,
-        detail: 'Windows 桌面客户端。登录、行情和保存需要联网。网页更新会自动同步到客户端。\nWindows desktop client. Internet is required for login, quotes and cloud storage. Website updates appear automatically.',
+        detail: `${mac ? 'macOS' : 'Windows'} 桌面客户端。登录、行情和保存需要联网。网页更新会自动同步到客户端。`,
       }) },
     ] },
   ]));
   window.on('closed', () => { clearTimeout(loadTimer); window = null; });
-  visit(smoke && process.argv.includes('--demo') ? DEMO : SITE);
   if (smoke && process.argv.includes('--offline')) showOffline();
+  else visit(smoke && process.argv.includes('--demo') ? DEMO : SITE);
 }
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => { if (!mac) app.quit(); });
 app.on('activate', () => { if (!window) createWindow(); });
 
 ipcMain.handle('equity:save-export', async (event, input) => {
@@ -159,7 +174,7 @@ ipcMain.handle('equity:save-export', async (event, input) => {
   }
   const data = validateExport(input);
   const { canceled, filePath } = await dialog.showSaveDialog(window, {
-    title: '保存导出文件 / Save export',
+    title: '保存导出文件',
     defaultPath: path.join(app.getPath('downloads'), 'us-equity-monitor.json'),
     filters: [{ name: 'JSON', extensions: ['json'] }],
   });

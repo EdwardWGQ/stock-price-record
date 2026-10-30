@@ -10,6 +10,8 @@ US stock price tracker with market fear sentiment analysis.
 
 Windows 用户也可直接从 **[桌面版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/tag/desktop-v1.0.0)** 的 **Assets（资源）** 下载 EXE。安装版名称含 `nsis`，免安装版名称含 `portable`；无需安装 Python 或 Node.js。不要把 `Source code (zip)` 当成安装包。使用方法、联网要求和重新构建步骤见 [DESKTOP.md](DESKTOP.md)。
 
+Mac 用户可从 **[Mac 版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/tag/desktop-mac-v1.0.0)** 下载 DMG。Apple 芯片选择 `mac-arm64`，Intel 选择 `mac-x64`；支持 macOS 13 或更新系统。双击 DMG 后把应用拖到 Applications。首次打开的系统提示处理见 [DESKTOP.md](DESKTOP.md) 和下载页的 `README-macOS.txt`。
+
 1. 打开 **[正式网站](https://stock-atlas.pages.dev/)**。
 2. 首次使用点击 **“创建账户”**。
 3. 输入自己的邮箱和密码。密码至少 **12 位**，包含大小写字母、数字和符号。

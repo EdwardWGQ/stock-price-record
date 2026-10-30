@@ -16,3 +16,5 @@ __pycache__/
 *.pyc
 desktop/release/
 desktop/assets/build-tools/
+desktop/assets/icon.iconset/
+desktop/assets/icon.icns

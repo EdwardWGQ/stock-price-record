@@ -1,7 +1,7 @@
 {
   "name": "us-equity-monitor-desktop",
   "version": "1.0.0",
-  "description": "Windows desktop client for US Equity Monitor",
+  "description": "Windows and macOS desktop client for US Equity Monitor",
   "author": "EdwardWGQ",
   "license": "MIT",
   "private": true,
@@ -10,7 +10,8 @@
     "start": "electron .",
     "test": "node --test policy.test.cjs export-policy.test.cjs",
     "pack": "node build.cjs --dir",
-    "dist": "node build.cjs"
+    "dist": "node build.cjs",
+    "dist:mac": "node build.cjs --mac"
   },
   "build": {
     "appId": "com.edwardwgq.usequitymonitor",
@@ -29,6 +30,20 @@
       "assets/icon.png",
       "package.json"
     ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.finance",
+      "minimumSystemVersion": "13.0.0",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
+      "artifactName": "US-Equity-Monitor-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "US Equity Monitor ${version}",
+      "sign": false
+    },
     "win": {
       "target": [
         "nsis",
