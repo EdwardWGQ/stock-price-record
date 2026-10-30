@@ -151,3 +151,4 @@ thead{background:#000}.monitor-app{max-width:100%;overflow-x:hidden}.main-grid,.
 @media(max-width:900px){.main-grid{height:auto;min-height:0}.chart-wrap{height:36vh;min-height:210px}.watchlist{max-height:260px}.vol-section,.table-section{scroll-margin-top:115px}}
 .wl-row .price.quote-stale{color:#b7a185}.stale-tag{display:inline;color:#f93;margin-left:3px;font-size:9px}
 .delete-dialog{width:min(460px,94vw)}.delete-body{padding:20px}.delete-body>p{margin-bottom:12px}.delete-body .help{font-size:11px;line-height:1.6}.delete-dialog .primary{background:#982b22}.delete-dialog .primary:hover{background:#b5362b}.wl-row .rm{min-width:22px;min-height:22px;display:flex;align-items:center;justify-content:center}
+.prepared-note{padding:5px 10px;color:#b7a185;background:#100e08;font-size:10px}

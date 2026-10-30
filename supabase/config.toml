@@ -38,3 +38,7 @@ content_path = "./supabase/templates/recovery.html"
 # The handler independently verifies the end-user access token with Auth getUser.
 # Needed for current publishable-key compatibility, never a public data endpoint.
 verify_jwt = false
+
+[functions.market-warm]
+# Scheduler authenticates with a dedicated server-only token, never a user JWT.
+verify_jwt = false

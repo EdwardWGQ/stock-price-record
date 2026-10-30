@@ -10,7 +10,7 @@ import {MiniChart} from './MonitorChart';
 const symbols=['VIX','VXN'] as const;
 type Symbol=typeof symbols[number];
 type State={data?:Volatility;loading:boolean;error?:unknown};
-export function VolatilityPanel({language,userId,refreshToken}:{language:Language;userId:string|null;refreshToken:number}) {
+export function VolatilityPanel({language,userId,refreshToken,prepared={},onData}:{language:Language;userId:string|null;refreshToken:number;prepared?:Record<string,Volatility>;onData?:(data:Volatility)=>void}) {
  const zh=language==='zh';
  const [states,setStates]=useState<Partial<Record<Symbol,State>>>({});
  const generation=useRef(0),pending=useRef(new Set<Symbol>());
@@ -20,7 +20,7 @@ export function VolatilityPanel({language,userId,refreshToken}:{language:Languag
   setStates(previous=>({...previous,[symbol]:{...previous[symbol],loading:true,error:undefined}}));
   try {
    const data=await fetchVolatility(symbol);
-   if(current===generation.current)setStates(previous=>({...previous,[symbol]:{data,loading:false}}));
+   if(current===generation.current){setStates(previous=>({...previous,[symbol]:{data,loading:false}}));onData?.(data);}
   }catch(error) {
    if(current===generation.current)setStates(previous=>({...previous,[symbol]:{data:previous[symbol]?.data?{...previous[symbol]!.data!,stale:true}:undefined,loading:false,error}}));
   }finally {if(current===generation.current)pending.current.delete(symbol);}
@@ -35,7 +35,7 @@ export function VolatilityPanel({language,userId,refreshToken}:{language:Languag
  },[userId]);
  useEffect(()=>{if(refreshToken)for(const symbol of symbols)void load(symbol);},[refreshToken]);
  return <section className="vol-section" id="volSection"><div className="label">VOLATILITY INDEX · DAILY ANALYSIS</div><div className="vol-grid">{symbols.map(symbol=>{
-  const state=states[symbol],data=state?.data,bars:Bar[]=demoMode?snapshot[symbol]:data?.bars??[],last=bars.at(-1),value=last?Number(last.close):null;
+  const state=states[symbol],data=state?.data??prepared[symbol],bars:Bar[]=demoMode?snapshot[symbol]:data?.bars??[],last=bars.at(-1),value=last?Number(last.close):null;
   return <article key={symbol} className="vol-card" aria-busy={state?.loading??false}>
    <div className="vol-head"><b translate="no" className="notranslate">{symbol}</b><strong>{value?.toFixed(2)??'--'}</strong></div>
    {state?.loading&&<p className="help" role="status">{zh?'正在加载官方日收盘数据…':'Loading official daily closes…'}</p>}

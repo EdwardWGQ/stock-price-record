@@ -3,6 +3,7 @@ import { requestSchema, normalizeQuote, normalizeHistory, searchResults } from '
 import { configuredOrigins, permittedOrigin } from './config.ts';
 import { officialVolatility } from './volatility.ts';
 import { fetchChinaSearch,fetchChinaQuote,fetchChinaQuotes,fetchChinaHistory } from './china.ts';
+import {preparedKey} from './prepared.ts';
 
 const env = (name: string) => Deno.env.get(name) ?? '';
 function quoteCacheKey(item:{symbol:string;exchange:string;currency:string}) {
@@ -57,6 +58,7 @@ Deno.serve(async req => {
       const provider=await fetch('https://cdn.cboe.com/api/global/us_indices/daily_prices/'+input.symbol+'_History.csv',{signal:AbortSignal.timeout(15000)});
       if(!provider.ok)throw new Error('MARKET_UNAVAILABLE');
       const data=officialVolatility(input.symbol,await provider.text());
+      await rpc('market_prepared_put',{p_entries:[{key:'volatility:'+input.symbol,payload:data}]});
       await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:3600});
       return response(data,200,origin);
     }
@@ -70,6 +72,8 @@ Deno.serve(async req => {
       if(cached)return response(cached,200,origin);
       if(!await allowed('upstream:china-public',60))return response({error:'RATE_LIMIT'},429,origin);
       const data=await fetchChinaQuotes(sorted);
+      const entries=data.quotes.flatMap(row=>row.quote?[{key:preparedKey('quote',sorted.find(item=>item.symbol===row.symbol&&item.exchange===row.exchange)!),payload:row.quote}]:[]);
+      if(entries.length)await rpc('market_prepared_put',{p_entries:entries});
       // Per-symbol errors must not be retained for the normal quote cache lifetime.
       if(data.quotes.every(row=>!row.error))await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:120});
       return response(data,200,origin);
@@ -83,6 +87,7 @@ Deno.serve(async req => {
       if(!await allowed('upstream:china-public',60))return response({error:'RATE_LIMIT'},429,origin);
       const verifiedQuote=input.action==='history'?await rpc<Awaited<ReturnType<typeof fetchChinaQuote>>|null>('market_cache_get',{p_key:quoteCacheKey(input.instrument)}):null;
       const data=input.action==='search'?await fetchChinaSearch(input.query):input.action==='quote'?await fetchChinaQuote(input.instrument):await fetchChinaHistory(input.instrument,input.start,verifiedQuote??undefined);
+      if(input.action!=='search')await rpc('market_prepared_put',{p_entries:[{key:preparedKey(input.action,input.instrument,input.action==='history'?input.start:undefined),payload:data}]});
       await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:input.action==='quote'?120:3600});
       return response(data,200,origin);
     }

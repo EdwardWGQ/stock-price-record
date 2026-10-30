@@ -17,11 +17,11 @@ export interface HistoryResult { bars:Bar[];currency:string;exchange:string;sour
 export interface Quote {
   symbol: string; exchange: string; currency: string; price: string; change_percent: string;
   as_of: string; fetched_at: string; market_open: boolean | null;
-  source: string; stale: boolean; bars?: Bar[];
+  source: string; stale: boolean; cached?:boolean; bars?: Bar[];
 }
 export interface Volatility {
  name:string;bars:Bar[];value:string;change_percent:string;week_change_percent:string;
- average20:string;as_of:string;fetched_at:string;source:string;stale:boolean;
+ average20:string;as_of:string;fetched_at:string;source:string;stale:boolean;cached?:boolean;
 }
 export type WatchInput = Omit<WatchItem, 'user_id' | 'revision' | 'created_at' | 'updated_at'>;
 export type TradeInput = Omit<Trade, 'user_id' | 'revision' | 'created_at' | 'updated_at'>;

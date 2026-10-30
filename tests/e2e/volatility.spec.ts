@@ -8,10 +8,35 @@ async function signedIn(page:Page,watchlist:unknown[]=[]) {
  },user);
  await page.route('https://test-project.supabase.co/rest/v1/**',async route=>{
   const path=new URL(route.request().url()).pathname;
+  if(path.endsWith('/monitor_workspace'))return route.fulfill({status:404,contentType:'application/json',body:'{"message":"not available in this fixture"}'});
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(path.endsWith('/watchlist')?watchlist:path.endsWith('/profiles')?{user_id:user.id,baseline_date:'2026-06-01'}:[])});
  });
  await page.route('https://test-project.supabase.co/auth/v1/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(user)}));
 }
+
+test('renders the previous complete workspace while record and market requests are still pending',async({page})=>{
+ await signedIn(page,[stock]);
+ await page.addInitScript(({stock,user,indexes})=>{
+  localStorage.setItem(`equity-workspace-v1:${user.id}`,JSON.stringify({watchlist:[stock],quotes:{[stock.id]:{symbol:stock.symbol,exchange:stock.exchange,currency:'USD',price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',market_open:false,source:'cached test',stale:false}},histories:{[stock.id]:[{date:'2026-06-01',open:'200',close:'200'},{date:'2026-10-29',open:'209',close:'210'}]},volatility:indexes,baselineDate:'2026-06-01'}));
+ },{stock,user,indexes:{VIX:indexData('VIX'),VXN:indexData('VXN')}});
+ await page.route('https://test-project.supabase.co/rest/v1/**',async route=>{await new Promise(resolve=>setTimeout(resolve,5000));await route.fulfill({status:503,contentType:'application/json',body:'{"message":"slow"}'});});
+ await page.route('**/functions/v1/market-data',async route=>{await new Promise(resolve=>setTimeout(resolve,5000));await route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'});});
+ await page.goto('/');
+ await expect(page.locator('.wl-row .price')).toContainText('$210.00');
+ await expect(page.locator('.chart-empty')).toHaveCount(0);
+ await expect(page.locator('#volSection .vol-head strong')).toHaveText(['21.00','21.00']);
+ await expect(page.locator('.prepared-note')).toContainText('上次行情');
+});
+
+test('loads the whole prepared workspace in one request on a new browser',async({page})=>{
+ await signedIn(page,[stock]);
+ await page.route('https://test-project.supabase.co/rest/v1/rpc/monitor_workspace',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({watchlist:[stock],trades:[],profile:{user_id:user.id,baseline_date:'2026-06-01'},quotes:{[stock.id]:{symbol:stock.symbol,exchange:stock.exchange,currency:'USD',price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',market_open:false,source:'prepared',cached:true,stale:true}},histories:{[stock.id]:[{date:'2026-06-01',close:'200'},{date:'2026-10-29',close:'210'}]},volatility:{VIX:indexData('VIX'),VXN:indexData('VXN')}})}));
+ await page.route('**/functions/v1/market-data',async route=>{await new Promise(resolve=>setTimeout(resolve,5000));await route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'});});
+ await page.goto('/');
+ await expect(page.locator('.wl-row .price')).toContainText('$210.00');
+ await expect(page.locator('.chart-empty')).toHaveCount(0);
+ await expect(page.locator('#volSection .vol-head strong')).toHaveText(['21.00','21.00']);
+});
 test('loads both indexes before slow equity quotes finish',async({page})=>{
  await signedIn(page,[{id:'22222222-2222-4222-8222-222222222222',user_id:user.id,symbol:'AAPL',name:'Apple',exchange:'NASDAQ',currency:'USD',timezone:'America/New_York',baseline_date:'2026-06-01',baseline_at:'2026-06-01T04:00:00Z',baseline_timezone:'America/New_York',baseline_price:'200',alert_percent:'-30',notes:'',revision:1,created_at:'2026-10-29T00:00:00Z',updated_at:'2026-10-29T00:00:00Z'}]);
  let equityFinished=false;

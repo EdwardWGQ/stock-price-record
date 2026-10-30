@@ -3,6 +3,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 const migration = readFileSync(new URL('../supabase/migrations/20261029075050_stock_atlas.sql', import.meta.url),'utf8');
 const datesMigration = readFileSync(new URL('../supabase/migrations/20261029085308_baseline_dates.sql', import.meta.url),'utf8');
+const preparedMigration = readFileSync(new URL('../supabase/migrations/20261030043502_prepared_market_workspace.sql', import.meta.url),'utf8');
 const alice = '11111111-1111-4111-8111-111111111111'; const bob = '22222222-2222-4222-8222-222222222222';
 let db: PGlite;
 async function asUser<T>(id: string, callback: () => Promise<T>): Promise<T> {
@@ -23,6 +24,7 @@ describe('real Postgres migration and authorization', () => {
       insert into auth.users values('${alice}'),('${bob}');`);
     await db.exec(migration);
     await db.exec(datesMigration);
+    await db.exec(preparedMigration);
   },30000);
   afterAll(async () => { await db?.close(); });
   it('allows owner insert and preserves UTC and full decimal precision', async () => {
@@ -32,6 +34,21 @@ describe('real Postgres migration and authorization', () => {
   it('hides Alice records from Bob and blocks reassignment on insert', async () => {
     const rows = await asUser(bob, () => db.query('select * from public.watchlist')); expect(rows.rows).toHaveLength(0);
     await expect(asUser(bob, () => insertWatch(alice,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'))).rejects.toThrow();
+  });
+  it('returns prepared data only for the current account and the exact start date',async()=>{
+    await db.exec('begin; set local role service_role;');
+    await db.query('select public.market_prepared_put($1::jsonb)',[JSON.stringify([
+      {key:'quote:AAPL:NASDAQ:USD:America/New_York',payload:{symbol:'AAPL',price:'123.456789'}},
+      {key:'history:AAPL:NASDAQ:USD:America/New_York:2026-06-01',payload:{bars:[{date:'2026-06-01',close:'100'}]}},
+    ])]);await db.exec('commit');
+    const aliceResult=await asUser(alice,()=>db.query<{data:any}>('select public.monitor_workspace() as data'));
+    expect(aliceResult.rows[0].data.watchlist).toHaveLength(1);
+    expect(Object.values(aliceResult.rows[0].data.quotes)[0]).toMatchObject({price:'123.456789',cached:true,stale:true});
+    const bobResult=await asUser(bob,()=>db.query<{data:any}>('select public.monitor_workspace() as data'));
+    expect(bobResult.rows[0].data.watchlist).toHaveLength(0);
+    expect(bobResult.rows[0].data.quotes).toEqual({});
+    await expect(asUser(alice,()=>db.query('select public.market_prepared_put(\'[]\'::jsonb)'))).rejects.toThrow();
+    await expect(asUser(alice,()=>db.query('select public.market_warm_instruments()'))).rejects.toThrow();
   });
   it('blocks cross-user update and delete', async () => {
     expect((await asUser(bob, () => db.query("update public.watchlist set notes='hacked' returning id"))).rows).toHaveLength(0);
