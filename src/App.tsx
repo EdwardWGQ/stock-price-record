@@ -17,6 +17,7 @@ import {VolatilityPanel} from './components/VolatilityPanel';
 import {DeleteDialog} from './components/DeleteDialog';
 import {emailLink,cleanAuthAddress,processEmailLink} from './lib/auth-links';
 import {saveExportFile} from './lib/export-file';
+import {parallelEach} from './lib/parallel';
 export default function App(){
  const language:Language='zh',zh=true,t=translator(language);
  const [user,setUser]=useState<User|null>(null),[ready,setReady]=useState(demoMode||!configured),[recovery,setRecovery]=useState(false);
@@ -30,7 +31,10 @@ export default function App(){
  const [refreshing,setRefreshing]=useState(false),[deleteTarget,setDeleteTarget]=useState<WatchItem|Trade|null>(null);
  const [baselineEdit,setBaselineEdit]=useState<WatchItem[]|null>(null),[tradeEdit,setTradeEdit]=useState<{existing?:Trade}|null>(null);
  const epoch=useRef(0),workLock=useRef(false),active=useRef<string|null>(null),refreshLock=useRef(false),refreshPending=useRef(false);
- const removedIds=useRef(new Set<string>());
+ const removedIds=useRef(new Set<string>()),historyFetched=useRef(new Map<string,number>());
+ const historyKey=(item:WatchItem)=>JSON.stringify([item.id,item.symbol,item.exchange,item.currency,item.timezone,item.baseline_date??item.baseline_at.slice(0,10)]);
+ const currentHistoryKeys=useRef(new Map<string,string>());
+ currentHistoryKeys.current=new Map(items.map(item=>[item.id,historyKey(item)]));
  useEffect(()=>{document.title='US EQUITY MONITOR';document.documentElement.lang=zh?'zh-CN':'en';},[zh]);
  useEffect(()=>{if(!supabase)return;let live=true;void (async()=>{
  try{
@@ -47,12 +51,45 @@ export default function App(){
   }
  }catch{if(live)setNotice(zh?'验证链接无效或已过期。请重新发送确认邮件或申请重置密码。':'Verification link is invalid or expired. Request a new link.');history.replaceState(null,'',cleanAuthAddress(location.href));}
  finally{if(live)setReady(true);}
-})();const sub=supabase.auth.onAuthStateChange((event,session)=>{const id=session?.user.id??null;if(id!==active.current){epoch.current++;removedIds.current.clear();setDeleteTarget(null);setRecordsOwner(null);setItems([]);setTrades([]);setHistories({});setQuotes({});setErrors({});setBaselineEdit(null);setTradeEdit(null);}active.current=id;setUser(session?.user??null);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);});return()=>{live=false;sub.data.subscription.unsubscribe();};},[]);
+})();const sub=supabase.auth.onAuthStateChange((event,session)=>{const id=session?.user.id??null;if(id!==active.current){epoch.current++;removedIds.current.clear();historyFetched.current.clear();setDeleteTarget(null);setRecordsOwner(null);setItems([]);setTrades([]);setHistories({});setQuotes({});setErrors({});setBaselineEdit(null);setTradeEdit(null);}active.current=id;setUser(session?.user??null);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);});return()=>{live=false;sub.data.subscription.unsubscribe();};},[]);
  async function reload(){if(demoMode)return;const e=++epoch.current;setRecordsOwner(null);setBusy(true);try{const r=await api.loadRecords();if(e!==epoch.current)return;setItems(r.watchlist);setTrades(r.trades);setDate(r.profile?.baseline_date??'2026-06-01');setRecordsOwner(user?.id??null);}catch(err){setNotice(errorText(err,language));}finally{if(e===epoch.current)setBusy(false);}}
  useEffect(()=>{if(user&&!recovery)void reload();},[user?.id,recovery]);
- async function refresh(){if(demoMode||!user||recovery||recordsOwner!==user.id)return;if(refreshLock.current){refreshPending.current=true;return;}refreshLock.current=true;const e=epoch.current;setRefreshing(true);try{for(const item of items){if(e!==epoch.current)break;if(removedIds.current.has(item.id))continue;try{const q=await api.fetchQuote(item);if(q.symbol!==item.symbol||q.exchange!==item.exchange||q.currency!==item.currency)throw new Error('IDENTITY_MISMATCH');if(e!==epoch.current)break;if(removedIds.current.has(item.id))continue;setQuotes(p=>({...p,[item.id]:q}));const r=await api.fetchHistory(item,item.baseline_date??item.baseline_at.slice(0,10));if(r.currency!==item.currency||r.exchange!==item.exchange)throw new Error('IDENTITY_MISMATCH');if(e!==epoch.current)break;if(removedIds.current.has(item.id))continue;setHistories(p=>({...p,[item.id]:r.bars}));setErrors(p=>{const n={...p};delete n[item.id];return n;});}catch(err){if(e===epoch.current&&!removedIds.current.has(item.id)){setErrors(p=>({...p,[item.id]:errorText(err,language)}));setQuotes(p=>p[item.id]?({...p,[item.id]:{...p[item.id],stale:true}}):p);}}}
+ async function refresh(){
+  if(demoMode||!user||recovery||recordsOwner!==user.id)return;
+  if(refreshLock.current){refreshPending.current=true;return;}
+  refreshLock.current=true;const e=epoch.current;setRefreshing(true);
+  setErrors({});
+  const currentItems=items.filter(item=>!removedIds.current.has(item.id));
+  const live=(item:WatchItem)=>e===epoch.current&&!removedIds.current.has(item.id);
+  function fail(item:WatchItem,cause:unknown,quoteFailed=false){if(live(item)){setErrors(previous=>({...previous,[item.id]:errorText(cause,language)}));if(quoteFailed)setQuotes(previous=>previous[item.id]?({...previous,[item.id]:{...previous[item.id],stale:true}}):previous);}}
+  try{
+   const quoteTask=(async()=>{
+    await parallelEach(Array.from({length:Math.ceil(currentItems.length/25)},(_,index)=>currentItems.slice(index*25,(index+1)*25)),2,async batch=>{
+     try{
+      const results=await api.fetchQuotes(batch);
+      for(const item of batch){if(!live(item))continue;const result=results.find(row=>row.symbol===item.symbol&&row.exchange===item.exchange),q=result?.quote;
+       if(!q){fail(item,new Error(result?.error??'MARKET_UNAVAILABLE'),true);continue;}
+       if(q.symbol!==item.symbol||q.exchange!==item.exchange||q.currency!==item.currency){fail(item,new Error('IDENTITY_MISMATCH'),true);continue;}
+       setQuotes(previous=>({...previous,[item.id]:q}));
+      }
+     }catch(cause){for(const item of batch)fail(item,cause,true);}
+    });
+   })();
+   const historyTask=parallelEach(currentItems,6,async item=>{
+    if(!live(item))return;
+    const key=historyKey(item);
+    if(Date.now()-(historyFetched.current.get(key)??0)<300000)return;
+    try{
+     const result=await api.fetchHistory(item,item.baseline_date??item.baseline_at.slice(0,10));
+     if(result.currency!==item.currency||result.exchange!==item.exchange)throw new Error('IDENTITY_MISMATCH');
+     if(!live(item)||currentHistoryKeys.current.get(item.id)!==key)return;
+     historyFetched.current.set(key,Date.now());setHistories(previous=>({...previous,[item.id]:result.bars}));
+    }catch(cause){fail(item,cause);}
+   });
+   await Promise.all([quoteTask,historyTask]);
+  }finally{refreshLock.current=false;if(e===epoch.current)setRefreshing(false);if(refreshPending.current){refreshPending.current=false;setRefreshRetry(value=>value+1);}}
+ }
 
- }finally{refreshLock.current=false;if(e===epoch.current)setRefreshing(false);if(refreshPending.current){refreshPending.current=false;setRefreshRetry(value=>value+1);}}}
  const itemKey=items.map(i=>`${i.id}:${i.symbol}:${i.exchange}`).join('|');useEffect(()=>{if(user)void refresh();},[itemKey,user?.id,recordsOwner,refreshRetry,recovery]);
  useEffect(()=>{if(demoMode)return;const timer=setInterval(()=>{if(!document.hidden)void refresh();},300000);return()=>clearInterval(timer);},[items,user?.id]);
  useEffect(()=>{let live=true;const timer=setTimeout(async()=>{if(!query.trim()){setResults([]);return;}try{const rows=demoMode?demoInstruments.filter(i=>`${i.symbol} ${i.name}`.toLowerCase().includes(query.toLowerCase())):await api.searchInstruments(query.trim());if(live)setResults(rows);}catch(err){if(live)setNotice(errorText(err,language));}},300);return()=>{live=false;clearTimeout(timer);};},[query]);

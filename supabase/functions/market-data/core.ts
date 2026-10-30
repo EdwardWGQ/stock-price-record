@@ -8,6 +8,7 @@ export const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('volatility'), symbol: z.enum(['VIX','VXN']) }),
   z.object({ action: z.literal('search'), query: z.string().trim().min(1).max(80) }),
   z.object({ action: z.literal('quote'), instrument }),
+  z.object({ action: z.literal('quotes'), instruments: z.array(instrument).min(1).max(25) }),
   z.object({ action: z.literal('history'), instrument, start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => { try { Temporal.PlainDate.from(v, { overflow: 'reject' }); return v >= '1900-01-01' && v <= '2100-12-31'; } catch { return false; } }) }),
 ]);
 export type MarketRequest = z.infer<typeof requestSchema>;

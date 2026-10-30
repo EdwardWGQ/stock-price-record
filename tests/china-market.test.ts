@@ -1,8 +1,14 @@
 import {describe,it,expect} from 'vitest';
-import {chinaSearch,chinaQuote,chinaHistory} from '../supabase/functions/market-data/china';
+import {chinaSearch,chinaQuote,chinaQuotes,chinaHistory} from '../supabase/functions/market-data/china';
 const item={symbol:'AAPL',name:'Apple',exchange:'NASDAQ',currency:'USD',timezone:'America/New_York'};
 function quote(){const f=Array(40).fill('');f[2]='AAPL.OQ';f[3]='110.12345678';f[4]='100';f[30]='2026-10-28 16:00:01';f[35]='USD';return 'v_usAAPL="'+f.join('~')+'";';}
 describe('domestic public web quote adapter',()=>{
+ it('maps batch quotes by stock identity and isolates missing or mismatched results',()=>{
+  const results=chinaQuotes(quote(),[{...item,symbol:'MISSING'},item,{...item,exchange:'NYSE'}],'2026-10-28T20:01:00Z').quotes;
+  expect(results[0]).toMatchObject({symbol:'MISSING',error:'MARKET_UNAVAILABLE'});
+  expect(results[1]).toMatchObject({symbol:'AAPL',quote:{price:'110.12345678',exchange:'NASDAQ'}});
+  expect(results[2]).toMatchObject({symbol:'AAPL',exchange:'NYSE',error:'IDENTITY_MISMATCH'});
+ });
  it('splits Tencent search records and decodes Chinese names without eval',()=>{const r=chinaSearch('v_hint="us~aapl.oq~\\u82f9\\u679c~pg~GP^us~voo.am~Vanguard~GP^sh~600000~bank"');expect(r.instruments[0]).toMatchObject({symbol:'AAPL',name:'苹果',exchange:'NASDAQ'});expect(r.instruments[1].exchange).toBe('AMEX');expect(r.instruments).toHaveLength(2);});
  it('preserves price decimals and converts exchange-local time to UTC',()=>{const r=chinaQuote(quote(),item,'2026-10-28T20:01:00Z');expect(r.price).toBe('110.12345678');expect(r.as_of).toBe('2026-10-28T20:00:01Z');expect(r.change_percent).toBe('10.12');expect(r.market_open).toBeNull();});
  it('rejects symbol/exchange collisions rather than guessing a market',()=>{expect(()=>chinaQuote(quote(),{...item,exchange:'NYSE'})).toThrow('IDENTITY_MISMATCH');});

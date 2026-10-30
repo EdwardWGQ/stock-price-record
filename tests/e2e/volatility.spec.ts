@@ -17,6 +17,7 @@ test('loads both indexes before slow equity quotes finish',async({page})=>{
  let equityFinished=false;
  await page.route('**/functions/v1/market-data',async route=>{
   const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_CONFIG"}'});
   if(body.action==='volatility')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
   await new Promise(resolve=>setTimeout(resolve,8000));equityFinished=true;
   await route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'});
@@ -31,6 +32,7 @@ test('loads indexes for an empty watchlist, retries failures and retains dated d
  let failures=true;
  await page.route('**/functions/v1/market-data',route=>{
   const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_CONFIG"}'});
   return route.fulfill({status:failures?503:200,contentType:'application/json',body:JSON.stringify(failures?{error:'MARKET_UNAVAILABLE'}:indexData(body.symbol))});
  });
  await page.goto('/');
@@ -51,6 +53,7 @@ test('shows independent loading states for a delayed index',async({page})=>{
  await signedIn(page);
  await page.route('**/functions/v1/market-data',async route=>{
   const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_CONFIG"}'});
   if(body.symbol==='VXN')await new Promise(resolve=>setTimeout(resolve,1500));
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
  });
@@ -65,6 +68,7 @@ test('automatically loads all imported stocks after records arrive',async({page}
  const quoted=new Set<string>();
  await page.route('**/functions/v1/market-data',route=>{
   const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_CONFIG"}'});
   if(body.action==='volatility')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
   quoted.add(body.instrument.symbol);
   const data=body.action==='quote'?{...body.instrument,price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',market_open:false,source:'test',stale:false}:{exchange:'NASDAQ',currency:'USD',bars:[{date:'2026-06-01',open:'200',close:'200'},{date:'2026-10-29',open:'209',close:'210'}]};
@@ -79,6 +83,7 @@ test('keeps a successful quote visible when history fails',async({page})=>{
  await signedIn(page,[stock]);
  await page.route('**/functions/v1/market-data',route=>{
   const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_CONFIG"}'});
   const data=body.action==='volatility'?indexData(body.symbol):body.action==='quote'?{...body.instrument,price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',market_open:false,source:'test',stale:false}:{error:'HISTORY_EMPTY'};
   return route.fulfill({status:body.action==='history'?404:200,contentType:'application/json',body:JSON.stringify(data)});
  });
@@ -103,6 +108,7 @@ test('deletes a stock during background refresh and keeps it deleted on reload',
  const quotePending=new Promise<void>(resolve=>{releaseQuote=resolve;});
  await page.route('**/functions/v1/market-data',async route=>{
   const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_CONFIG"}'});
   if(body.action==='volatility')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
   await quotePending;
   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...stock,price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',market_open:false,source:'test',stale:false})});
@@ -132,7 +138,7 @@ test('deletes a stock during background refresh and keeps it deleted on reload',
 
 test('keeps the stock visible when deletion fails and lets the user retry',async({page})=>{
  await signedIn(page,[stock]);
- await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'}));
+ await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:route.request().postDataJSON().action==='quotes'?'MARKET_CONFIG':'MARKET_UNAVAILABLE'})}));
  let failed=true,deletes=0;
  await page.route('https://test-project.supabase.co/rest/v1/watchlist**',route=>{
   if(route.request().method()!=='DELETE')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([stock])});
@@ -148,4 +154,36 @@ test('keeps the stock visible when deletion fails and lets the user retry',async
  await page.getByRole('button',{name:'确认删除',exact:true}).click();
  await expect(page.locator('.wl-row')).toHaveCount(0);
  expect(deletes).toBe(2);
+});
+
+test('shows a full quote batch before slow histories and reuses curves on refresh',async({page})=>{
+ const stocks=Array.from({length:20},(_,index)=>({...stock,id:`22222222-2222-4222-8222-${String(index).padStart(12,'0')}`,symbol:`FAST${index}`}));
+ await signedIn(page,stocks);
+ let batches=0,histories=0,activeHistories=0,maximumHistories=0;
+ let releaseHistories!:()=>void;
+ const pending=new Promise<void>(resolve=>{releaseHistories=resolve;});
+ await page.route('**/functions/v1/market-data',async route=>{
+  const body=route.request().postDataJSON();
+  if(body.action==='volatility')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
+  if(body.action==='quotes'){
+   batches++;
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({quotes:[...body.instruments].reverse().map((item:typeof stock)=>({symbol:item.symbol,exchange:item.exchange,quote:{...item,price:'210',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:'2026-10-30T00:00:00Z',source:'test',stale:false,market_open:false}}))})});
+  }
+  expect(body.action).toBe('history');histories++;activeHistories++;maximumHistories=Math.max(maximumHistories,activeHistories);
+  await pending;activeHistories--;
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({currency:'USD',exchange:'NASDAQ',bars:[{date:'2026-06-01',open:'200',close:'200'},{date:'2026-10-29',open:'209',close:'210'}]})});
+ });
+ await page.goto('/');
+ await expect(page.locator('.wl-row .price')).toHaveText(Array(20).fill('$210.00'));
+ expect(batches).toBe(1);
+ await expect.poll(()=>histories).toBe(6);
+ expect(maximumHistories).toBe(6);
+ releaseHistories();
+ await expect(page.locator('.top-info button').first()).toHaveText('↻');
+ expect(histories).toBe(20);
+ await page.locator('.top-info button').first().click();
+ await expect.poll(()=>batches).toBe(2);
+ await expect(page.locator('.top-info button').first()).toHaveText('↻');
+ expect(histories).toBe(20);
+ await expect(page.locator('.chart-empty')).toHaveCount(0);
 });

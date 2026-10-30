@@ -5,6 +5,11 @@ const selected = { symbol:'AAPL', name:'Apple', exchange:'NASDAQ', currency:'USD
 const now = '2026-10-29T14:00:00Z';
 const raw = { ...selected, close:'0.12345678', percent_change:'1.25', timestamp: new Date(now).getTime()/1000, is_market_open:true };
 describe('provider validation', () => {
+  it('bounds batch requests without rejecting the normal 20-stock watchlist',()=>{
+    expect(requestSchema.safeParse({action:'quotes',instruments:Array(20).fill(selected)}).success).toBe(true);
+    expect(requestSchema.safeParse({action:'quotes',instruments:[]}).success).toBe(false);
+    expect(requestSchema.safeParse({action:'quotes',instruments:Array(26).fill(selected)}).success).toBe(false);
+  });
   it('allows only the deployed origin by default and honors an explicit override', () => {
     expect(configuredOrigins('')).toEqual(['https://stock-atlas.pages.dev','https://312901e8.stock-atlas.pages.dev']);
     expect(configuredOrigins('https://stocks.example.com, https://test.example.com')).toEqual(['https://stocks.example.com','https://test.example.com']);

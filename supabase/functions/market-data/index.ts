@@ -2,9 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { requestSchema, normalizeQuote, normalizeHistory, searchResults } from './core.ts';
 import { configuredOrigins, permittedOrigin } from './config.ts';
 import { officialVolatility } from './volatility.ts';
-import { fetchChinaSearch,fetchChinaQuote,fetchChinaHistory } from './china.ts';
+import { fetchChinaSearch,fetchChinaQuote,fetchChinaQuotes,fetchChinaHistory } from './china.ts';
 
 const env = (name: string) => Deno.env.get(name) ?? '';
+function quoteCacheKey(item:{symbol:string;exchange:string;currency:string}) {
+  return 'china-public:v3:'+JSON.stringify({action:'quote',symbol:item.symbol,exchange:item.exchange,currency:item.currency});
+}
 function platformKey(kind: 'PUBLISHABLE' | 'SECRET') {
   const explicit = env(kind === 'PUBLISHABLE' ? 'APP_SUPABASE_PUBLISHABLE_KEY' : 'APP_SUPABASE_SECRET_KEY');
   if (explicit) return explicit;
@@ -59,6 +62,18 @@ Deno.serve(async req => {
     }
     const providerName=env('MARKET_PROVIDER')||'china-public';
     if(!['china-public','twelve-data'].includes(providerName))throw new Error('MARKET_CONFIG');
+    if(input.action==='quotes') {
+      if(providerName!=='china-public')return response({error:'MARKET_CONFIG'},503,origin);
+      const sorted=[...input.instruments].sort((a,b)=>(a.symbol+':'+a.exchange).localeCompare(b.symbol+':'+b.exchange));
+      const cacheKey='china-public:batch:v1:'+JSON.stringify(sorted.map(item=>({symbol:item.symbol,exchange:item.exchange,currency:item.currency,timezone:item.timezone})));
+      const cached=await rpc<unknown>('market_cache_get',{p_key:cacheKey});
+      if(cached)return response(cached,200,origin);
+      if(!await allowed('upstream:china-public',60))return response({error:'RATE_LIMIT'},429,origin);
+      const data=await fetchChinaQuotes(sorted);
+      // Per-symbol errors must not be retained for the normal quote cache lifetime.
+      if(data.quotes.every(row=>!row.error))await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:120});
+      return response(data,200,origin);
+    }
     const cacheKey = providerName+':v3:' + (input.action === 'search'
       ? JSON.stringify({ action: input.action, query: input.query.toUpperCase() })
       : JSON.stringify({ action: input.action, symbol: input.instrument.symbol, exchange: input.instrument.exchange, currency: input.instrument.currency, ...(input.action === 'history' ? { start: input.start } : {}) }));
@@ -66,7 +81,8 @@ Deno.serve(async req => {
     if (cached) return response(cached, 200, origin);
     if(providerName==='china-public') {
       if(!await allowed('upstream:china-public',60))return response({error:'RATE_LIMIT'},429,origin);
-      const data=input.action==='search'?await fetchChinaSearch(input.query):input.action==='quote'?await fetchChinaQuote(input.instrument):await fetchChinaHistory(input.instrument,input.start);
+      const verifiedQuote=input.action==='history'?await rpc<Awaited<ReturnType<typeof fetchChinaQuote>>|null>('market_cache_get',{p_key:quoteCacheKey(input.instrument)}):null;
+      const data=input.action==='search'?await fetchChinaSearch(input.query):input.action==='quote'?await fetchChinaQuote(input.instrument):await fetchChinaHistory(input.instrument,input.start,verifiedQuote??undefined);
       await rpc('market_cache_put',{p_key:cacheKey,p_payload:data,p_ttl:input.action==='quote'?120:3600});
       return response(data,200,origin);
     }

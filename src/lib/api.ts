@@ -1,6 +1,7 @@
 import { supabase } from './client';
 import { watchSchema, tradeSchema, instrumentSchema } from './validation';
 import type { WatchItem, Trade, Profile, WatchInput, TradeInput, Instrument, Quote, Bar, Volatility, HistoryResult } from './types';
+import {parallelEach} from './parallel';
 const client = () => { if (!supabase) throw new Error('CONFIG'); if (!navigator.onLine) throw new Error('OFFLINE'); return supabase; };
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T { if (result.error) throw new Error(result.error.message); return result.data as T; }
 export async function loadRecords() {
@@ -64,6 +65,23 @@ export async function searchInstruments(query: string): Promise<Instrument[]> {
   return result.instruments.flatMap(value => { const parsed = instrumentSchema.safeParse(value); return parsed.success ? [parsed.data] : []; });
 }
 export async function fetchQuote(instrument: Instrument): Promise<Quote> { return marketRequest({ action: 'quote', instrument }); }
+export interface QuoteResult {symbol:string;exchange:string;quote?:Quote;error?:string}
+export async function fetchQuotes(instruments:Instrument[]):Promise<QuoteResult[]> {
+ try {
+  const data=await marketRequest<{quotes:QuoteResult[]}>({action:'quotes',instruments:instruments.map(({symbol,name,exchange,currency,timezone})=>({symbol,name,exchange,currency,timezone}))});
+  if(!Array.isArray(data.quotes))throw new Error('MARKET_UNAVAILABLE');
+  return data.quotes;
+ }catch(cause) {
+  // The configured paid provider uses its existing single-instrument endpoint.
+  if(!(cause instanceof Error)||cause.message!=='MARKET_CONFIG')throw cause;
+  const results:QuoteResult[]=[];
+  await parallelEach(instruments,4,async item=>{
+   try{results.push({symbol:item.symbol,exchange:item.exchange,quote:await fetchQuote(item)});}
+   catch(error){results.push({symbol:item.symbol,exchange:item.exchange,error:error instanceof Error?error.message:'MARKET_UNAVAILABLE'});}
+  });
+  return results;
+ }
+}
 export async function fetchVolatility(symbol:'VIX'|'VXN'):Promise<Volatility>{return marketRequest({action:'volatility',symbol});}
 export async function fetchHistory(instrument: Instrument, start: string) { return marketRequest<HistoryResult>({ action: 'history', instrument, start }); }
 export interface BaselineUpdate { id: string; revision: number; baseline_date: string; baseline_session: string; baseline_at: string; baseline_timezone: string; baseline_price: string }

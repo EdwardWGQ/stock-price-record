@@ -75,9 +75,22 @@ export async function fetchChinaQuote(selected:Instrument) {
  const url=new URL('https://qt.gtimg.cn/');url.searchParams.set('q','us'+selected.symbol);
  return chinaQuote(await content(url,true),selected);
 }
-export async function fetchChinaHistory(selected:Instrument,start:string) {
+export function chinaQuotes(text:string,selected:Instrument[],now=new Date().toISOString()) {
+ return {quotes:selected.map(item=>{
+  try{return {symbol:item.symbol,exchange:item.exchange,quote:chinaQuote(text,item,now)};}
+  catch(cause){const code=cause instanceof Error?cause.message:'MARKET_UNAVAILABLE';return {symbol:item.symbol,exchange:item.exchange,error:code==='IDENTITY_MISMATCH'?code:'MARKET_UNAVAILABLE'};}
+ })};
+}
+export async function fetchChinaQuotes(selected:Instrument[]) {
+ if(!selected.length||selected.length>25||selected.some(item=>!symbolPattern.test(item.symbol)))throw new Error('VALIDATION');
+ const url=new URL('https://qt.gtimg.cn/');url.searchParams.set('q',Array.from(new Set(selected.map(item=>'us'+item.symbol))).join(','));
+ return chinaQuotes(await content(url,true),selected);
+}
+export async function fetchChinaHistory(selected:Instrument,start:string,verifiedQuote?:ReturnType<typeof chinaQuote>) {
  // Validate the instrument against the quote source; a symbol can exist on multiple exchanges.
- await fetchChinaQuote(selected);
+ if(verifiedQuote){
+  if(verifiedQuote.symbol!==selected.symbol||verifiedQuote.exchange!==selected.exchange||verifiedQuote.currency!==selected.currency||selected.timezone!=='America/New_York')throw new Error('IDENTITY_MISMATCH');
+ }else await fetchChinaQuote(selected);
  const url=new URL('https://stock.finance.sina.com.cn/usstock/api/jsonp.php/var%20_=/US_MinKService.getDailyK');url.searchParams.set('symbol',selected.symbol.toLowerCase());
  return chinaHistory(await content(url),selected,start);
 }
