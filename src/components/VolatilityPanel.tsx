@@ -37,7 +37,7 @@ export function VolatilityPanel({language,userId,refreshToken}:{language:Languag
  return <section className="vol-section" id="volSection"><div className="label">VOLATILITY INDEX · DAILY ANALYSIS</div><div className="vol-grid">{symbols.map(symbol=>{
   const state=states[symbol],data=state?.data,bars:Bar[]=demoMode?snapshot[symbol]:data?.bars??[],last=bars.at(-1),value=last?Number(last.close):null;
   return <article key={symbol} className="vol-card" aria-busy={state?.loading??false}>
-   <div className="vol-head"><b>{symbol}</b><strong>{value?.toFixed(2)??'--'}</strong></div>
+   <div className="vol-head"><b translate="no" className="notranslate">{symbol}</b><strong>{value?.toFixed(2)??'--'}</strong></div>
    {state?.loading&&<p className="help" role="status">{zh?'正在加载官方日收盘数据…':'Loading official daily closes…'}</p>}
    {state?.error!==undefined&&<p className="help" role="status">{state.error instanceof Error&&state.error.message==='MARKET_UNAVAILABLE'?(zh?'官方指数服务暂不可用，请重新加载。':'Official index service is unavailable. Please reload.'):errorText(state.error,language)}{data&&(zh?' 保留上次数据，请核对下方日期。':' Previous data retained; check the date below.')}</p>}
    {value===null?!state?.loading&&!state?.error&&<p className="help">{zh?'暂无官方指数数据。':'Official index data is unavailable.'}</p>:<>

@@ -18,6 +18,33 @@ test('restores the original black monitor with 19 curves and watchlist',async({p
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'artifacts/restored-mobile.png',fullPage:true});
 });
+
+test('keeps stock identifiers unchanged when switching language or translating the page',async({page})=>{
+ await expect(page.locator('html')).toHaveAttribute('translate','no');
+ await expect(page.locator('meta[name="google"]')).toHaveAttribute('content','notranslate');
+ const symbols=await page.locator('.wl-row .sym').allTextContents();
+ for(const symbol of ['YUM','HOOD','VOO','GOOGL'])expect(symbols).toContain(symbol);
+ await page.getByRole('button',{name:'EN',exact:true}).click();
+ await expect(page.getByPlaceholder('Search stocks...',{exact:true})).toBeVisible();
+ // Model a translator that obeys the standard inherited translate attribute.
+ const changed=await page.evaluate(()=>{
+  const replacements:Record<string,string>={YUM:'好吃',HOOD:'胡德',VOO:'呸',GOOGL:'谷歌搜索'};
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let count=0;
+  while(walker.nextNode()) {
+   const node=walker.currentNode,word=node.textContent?.trim()??'';
+   if(replacements[word]&&node.parentElement?.translate){node.textContent=replacements[word];count++;}
+  }
+  return count;
+ });
+ expect(changed).toBe(0);
+ expect(await page.locator('.wl-row .sym').allTextContents()).toEqual(symbols);
+ await page.getByRole('button',{name:'中文',exact:true}).click();
+ await expect(page.getByPlaceholder('搜索股票',{exact:true})).toBeVisible();
+ expect(await page.locator('.wl-row .sym').allTextContents()).toEqual(symbols);
+ await page.getByPlaceholder('搜索股票',{exact:true}).fill('YUM');
+ await expect(page.locator('.search-dropdown b')).toHaveText('YUM');
+ await expect(page.locator('.search-dropdown b')).toHaveAttribute('translate','no');
+});
 test('changes every baseline date and recalculates prices and returns',async({page})=>{
  const original=await page.locator('.wl-row').first().innerText();
  await page.getByRole('button',{name:'修改起始日期',exact:true}).click();
