@@ -1,4 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
+import {hoverHistoryPoint} from './helpers/chart';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'browser-test@example.com',aud:'authenticated',app_metadata:{},user_metadata:{},created_at:'2026-10-29T00:00:00Z'};
 const indexData=(name:string)=>({name,bars:[{date:'2026-10-28',close:'20'},{date:'2026-10-29',close:'21'}],value:'21',change_percent:'5',week_change_percent:'5',average20:'20.5',as_of:'2026-10-29',fetched_at:'2026-10-30T00:00:00Z',source:'Cboe official / daily close',stale:false});
 const stock={id:'22222222-2222-4222-8222-222222222222',user_id:user.id,symbol:'AAPL',name:'Apple',exchange:'NASDAQ',currency:'USD',timezone:'America/New_York',baseline_date:'2026-06-01',baseline_at:'2026-06-01T04:00:00Z',baseline_timezone:'America/New_York',baseline_price:'200',alert_percent:'-30',notes:'',revision:1,created_at:'2026-10-29T00:00:00Z',updated_at:'2026-10-29T00:00:00Z'};
@@ -13,6 +14,18 @@ async function signedIn(page:Page,watchlist:unknown[]=[]) {
  });
  await page.route('https://test-project.supabase.co/auth/v1/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(user)}));
 }
+
+test('uses the historical close and currency from prepared data even with gaps and a different latest quote',async({page})=>{
+ const hongKong={...stock,symbol:'0700',currency:'HKD',exchange:'HKEX',timezone:'Asia/Hong_Kong',baseline_price:'100'};
+ const other={...stock,id:'33333333-3333-4333-8333-333333333333',symbol:'OTHER'};
+ await signedIn(page,[hongKong,other]);
+ await page.route('https://test-project.supabase.co/rest/v1/rpc/monitor_workspace',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({watchlist:[hongKong,other],trades:[],profile:{user_id:user.id,baseline_date:'2026-06-01'},quotes:{[hongKong.id]:{symbol:hongKong.symbol,exchange:hongKong.exchange,currency:'HKD',price:'999',change_percent:'5',as_of:'2026-10-29T20:00:00Z',fetched_at:new Date().toISOString(),market_open:false,source:'prepared',cached:true,stale:true}},histories:{[hongKong.id]:[{date:'2026-06-01',open:'100',close:'100'},{date:'2026-06-03',open:'120',close:'123.45678'}],[other.id]:[{date:'2026-06-02',open:'200',close:'200'}]},volatility:{VIX:indexData('VIX'),VXN:indexData('VXN')}})}));
+ await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'}));
+ await page.goto('/');
+ await expect(page.locator('.wl-row').first().locator('.price')).toContainText('HKD 999.00');
+ await page.locator('.tags').getByRole('button',{name:'0700',exact:true}).click();
+ expect(await hoverHistoryPoint(page,'0700','2026-06-03')).toEqual({title:['2026-06-03'],lines:[' 0700 HKD 123.46 (收盘)  +23.46%']});
+});
 
 test('renders the previous complete workspace while record and market requests are still pending',async({page})=>{
  await signedIn(page,[stock]);

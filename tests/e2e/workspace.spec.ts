@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {hoverHistoryPoint} from './helpers/chart';
 test.beforeEach(async({page})=>{await page.goto('/');});
 test('restores the original black monitor with 19 curves and watchlist',async({page})=>{
  await expect(page.getByRole('link',{name:'US EQUITY MONITOR'})).toBeVisible();
@@ -91,4 +92,17 @@ test('filters a curve, edits trade time and exports records',async({page})=>{
  await expect(page.getByLabel('记录日期和时间',{exact:true})).toHaveValue('2026-10-01T12:00:45');
  await page.getByRole('button',{name:'取消',exact:true}).click();
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'导出我的数据',exact:true}).click();expect((await download).suggestedFilename()).toBe('us-equity-monitor.json');
+});
+
+test('shows the hovered daily close with its return and updates both after changing the baseline',async({page})=>{
+ await page.locator('.tags').getByRole('button',{name:'SPCX',exact:true}).click();
+ // SPCX begins after the other stocks: its first bar is not chart index zero.
+ expect(await hoverHistoryPoint(page,'SPCX','2026-06-12')).toEqual({title:['2026-06-12'],lines:[' SPCX $160.95 (收盘)  +7.30%']});
+ await page.screenshot({path:'artifacts/historical-price-tooltip.png'});
+ await page.getByRole('button',{name:'修改日期 SPCX',exact:true}).click();
+ await page.getByLabel('起始记录日期',{exact:true}).fill('2026-06-15');
+ await page.getByRole('button',{name:'查询并预览新起点'}).click();
+ await page.getByRole('button',{name:'确认修改日期',exact:true}).click();
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+ expect(await hoverHistoryPoint(page,'SPCX','2026-06-16')).toEqual({title:['2026-06-16'],lines:[' SPCX $201.80 (收盘)  +4.83%']});
 });
