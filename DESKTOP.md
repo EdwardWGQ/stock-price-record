@@ -55,8 +55,8 @@ Mac 在原生 macOS 环境运行 `npm ci`、`npm test`、`npm run dist:mac -- --
 
 ## 面向用户的发布流程
 
-Windows 和 Mac 现在使用同一个发布标签 `desktop-v<版本号>` 和同一个 Releases 下载页。正式发布前，提升 `desktop/package.json` 的版本，并同步 `desktop/package-lock.json`；编辑 `desktop/RELEASE.md` 中的更新说明，保留 `{{version}}` 占位符。可在 desktop 目录执行 `npm version minor --no-git-tag-version --ignore-scripts`。
+Windows 和 Mac 使用同一个发布标签 `desktop-v<版本号>` 和同一个 Releases 下载页。每次 main 网站部署成功后，流程自动读取最近发布版本并递增补丁号，例如 1.1.0 → 1.1.1；版本在构建时写入桌面 package.json 和锁文件。计划较大的版本时，可在 desktop 目录执行 `npm version minor --no-git-tag-version --ignore-scripts` 调整基准版本。更新说明保存在 `desktop/RELEASE.md`，保留 `{{version}}` 占位符。
 
-`.github/workflows/ci.yml` 在 main 的网站验证和部署成功后调用 Release Desktop：读取版本，分别构建 Windows 安装版／免安装版及 Mac arm64／x64，验证正式登录页、演示页和离线提示，生成 SHA-256 校验值与发布清单，全部成功才正式发布。相同版本已经发布时跳过构建，不覆盖历史安装包；下一次正式发布需要提升版本。
+`.github/workflows/ci.yml` 在 main 的网站验证和部署成功后调用 Release Desktop：自动确定新版本，分别构建 Windows 安装版／免安装版及 Mac arm64／x64，验证正式登录页、演示页和离线提示，生成 SHA-256 校验值与发布清单，全部成功才正式发布。源码内容与最近发布版本完全相同时跳过构建，不覆盖历史安装包；网站内容变化会自动生成下一个版本。源码重建时使用 release-manifest.json 的版本执行 `npm version <版本号> --no-git-tag-version --ignore-scripts --allow-same-version` 后再打包。
 
 也可手动运行 Release Desktop。默认生成草稿，勾选 publish 才正式发布。旧的 Build macOS Desktop 入口现在调用同一套全平台流程并生成草稿；Build Windows Desktop 仍用于单独构建验证。人工发布草稿前需确认 Windows 和两种 Mac 的全部文件及验证报告都已齐全。

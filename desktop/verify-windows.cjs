@@ -14,18 +14,21 @@ for (const file of [installer, portable]) {
   if (header.toString('ascii') !== 'MZ' || fs.statSync(file).size < 1024 * 1024) throw new Error(`Invalid executable: ${path.basename(file)}`);
 }
 const screens = [];
+const reportDirectory = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'equity-monitor-verification-'));
 for (const [kind, file] of [['unpacked', path.join(directory, 'win-unpacked', 'US Equity Monitor.exe')], ['portable', portable]]) {
   for (const mode of ['live', 'demo', 'offline']) {
-    const output = execFileSync(file, ['--smoke-test', ...(mode === 'live' ? [] : [`--${mode}`])], {
+    const reportFile = path.join(reportDirectory, `${kind}-${mode}.json`);
+    execFileSync(file, ['--smoke-test', `--smoke-report=${reportFile}`, ...(mode === 'live' ? [] : [`--${mode}`])], {
       encoding: 'utf8', timeout: 120000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     });
-    const line = output.split('\n').find(value => value.startsWith('{"event":"desktop-smoke"'));
-    if (!line) throw new Error(`Missing ${kind} ${mode} verification output`);
-    const state = JSON.parse(line);
+    if (!fs.existsSync(reportFile)) throw new Error(`Missing ${kind} ${mode} verification report`);
+    const state = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+    fs.unlinkSync(reportFile);
     if (state.version !== version || state.sandbox !== true || state.nodeIntegration !== false) throw new Error(`Unexpected ${kind} ${mode} application`);
     if (mode === 'live' && !state.login || mode === 'demo' && !state.demo || mode === 'offline' && !state.body.includes('暂时无法连接网站')) throw new Error(`Unexpected ${kind} ${mode} screen`);
     screens.push({ kind, mode, ...state });
     process.stdout.write(JSON.stringify({ kind, mode, version, title: state.title }) + '\n');
   }
 }
+fs.rmdirSync(reportDirectory);
 fs.writeFileSync(path.join(directory, 'windows-verification.json'), JSON.stringify({ platform: 'win32', arch: 'x64', version, checkedAt: new Date().toISOString(), screens }, null, 2) + '\n');

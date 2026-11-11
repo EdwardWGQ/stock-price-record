@@ -8,7 +8,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "test": "node --test policy.test.cjs export-policy.test.cjs update-policy.test.cjs",
+    "test": "node --test policy.test.cjs export-policy.test.cjs update-policy.test.cjs release-version.test.cjs",
     "pack": "node build.cjs --dir",
     "dist": "node build.cjs",
     "dist:mac": "node build.cjs --mac"

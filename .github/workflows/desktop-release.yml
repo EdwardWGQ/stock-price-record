@@ -26,31 +26,19 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
       build: ${{ steps.version.outputs.build }}
     steps:
       - uses: actions/checkout@v4
-      - name: Read version and preserve existing releases
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Select version for the updated website
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          version=$(node -p "require('./desktop/package.json').version")
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo 'A stable desktop version is required' >&2
-            exit 1
-          fi
-          tag="desktop-v$version"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if gh release view "$tag" --json isDraft --jq '.isDraft' > existing-draft.txt 2>/dev/null; then
-            if [[ "$(cat existing-draft.txt)" == false ]]; then
-              echo 'build=false' >> "$GITHUB_OUTPUT"
-              echo "Release $tag is already published. Bump desktop/package.json for the next release." >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-          fi
-          echo 'build=true' >> "$GITHUB_OUTPUT"
+        run: node desktop/release-version.cjs
 
   windows:
     needs: prepare
@@ -68,6 +56,10 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
+      - name: Stamp release version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "$env:RELEASE_VERSION" --no-git-tag-version --ignore-scripts --allow-same-version
       - run: npm test
       - run: npm run dist
         env:
@@ -108,6 +100,10 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
+      - name: Stamp release version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --ignore-scripts --allow-same-version
       - run: npm test
       - name: Create native application icon
         run: |
@@ -151,6 +147,11 @@ jobs:
           pattern: desktop-release-*
           path: desktop-downloads
           merge-multiple: true
+      - name: Stamp release version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --ignore-scripts --allow-same-version
+        working-directory: desktop
       - name: Verify complete release and prepare checksums
         run: node desktop/release-files.cjs desktop-downloads
       - name: Upload every platform before publishing
@@ -170,7 +171,7 @@ jobs:
             gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" --title "市场观测 · ${RELEASE_TAG#desktop-v} · Windows / macOS" --notes-file desktop-downloads/RELEASE.md
           fi
           gh release upload "$RELEASE_TAG" desktop-downloads/* --clobber
-          gh release edit "$RELEASE_TAG" --notes-file desktop-downloads/RELEASE.md
+          gh release edit "$RELEASE_TAG" --target "$GITHUB_SHA" --notes-file desktop-downloads/RELEASE.md
           if [[ "$PUBLISH_RELEASE" == true ]]; then
             gh release edit "$RELEASE_TAG" --draft=false --latest
           fi

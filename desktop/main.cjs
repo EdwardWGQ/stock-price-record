@@ -8,6 +8,7 @@ const { validateExport } = require('./export-policy.cjs');
 const { RELEASES, RELEASE_API, availableUpdate } = require('./update-policy.cjs');
 const offline = pathToFileURL(path.join(__dirname, 'offline.html')).href;
 const smoke = process.argv.includes('--smoke-test');
+const smokeReport = smoke ? process.argv.find(argument => argument.startsWith('--smoke-report='))?.slice('--smoke-report='.length) : null;
 const mac = process.platform === 'darwin';
 let window;
 let showingOffline = false;
@@ -150,8 +151,11 @@ function createWindow() {
         if (showingOffline || state.demo || state.login) break;
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      process.stdout.write(JSON.stringify({ event: 'desktop-smoke', version: app.getVersion(), ...state,
-        sandbox: true, nodeIntegration: false }) + '\n');
+      const report = { event: 'desktop-smoke', version: app.getVersion(), ...state,
+        sandbox: true, nodeIntegration: false };
+      process.stdout.write(JSON.stringify(report) + '\n');
+      // The Windows portable launcher does not forward the application's stdout.
+      if (smokeReport && path.isAbsolute(smokeReport)) await fs.writeFile(smokeReport, JSON.stringify(report) + '\n', 'utf8');
       const expected = process.argv.includes('--offline') ? showingOffline :
         !showingOffline && (process.argv.includes('--demo') ? state.demo : state.login);
       app.exit(expected ? 0 : 1);
