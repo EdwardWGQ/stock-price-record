@@ -23,8 +23,13 @@ export function MonitorChart({items,histories,selected}:{items:WatchItem[];histo
  },[items,histories,selected]);
  return <canvas ref={canvas} id="mainChart" role="img" aria-label="Cumulative return chart"/>;
 }
-export function MiniChart({bars}:{bars:Bar[]}){
+export function MiniChart({bars,period=null,average=null,label='Index',color='#56c9ad',language='zh'}:{bars:Bar[];period?:number|null;average?:number|null;label?:string;color?:string;language?:string}){
  const ref=useRef<HTMLCanvasElement>(null);
- useEffect(()=>{if(!ref.current)return;const chart=new Chart(ref.current,{type:'line',data:{labels:bars.map(b=>b.date),datasets:[{data:bars.map(b=>Number(b.close)),borderColor:'#4ade80',borderWidth:1,pointRadius:0,tension:.15}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{ticks:{color:'#444',font:{size:7}},grid:{color:'#111'}}}}});return()=>chart.destroy();},[bars]);
- return <canvas ref={ref}/>;
+ useEffect(()=>{
+  if(!ref.current)return;
+  const shown=period?bars.slice(-period):bars,dates=shown.map(bar=>bar.date);
+  const chart=new Chart(ref.current,{type:'line',data:{labels:dates,datasets:[{label,data:shown.map(bar=>Number(bar.close)),borderColor:color,backgroundColor:color+'12',fill:true,borderWidth:2,pointRadius:0,pointHoverRadius:4,pointHoverBackgroundColor:color,tension:.18},...(average===null?[]:[{label:'20D AVG',data:shown.map(()=>average),borderColor:'#667183',borderDash:[4,4],borderWidth:1,pointRadius:0,pointHoverRadius:0,fill:false}])]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{filter:item=>item.datasetIndex===0,displayColors:false,backgroundColor:'#171e29',borderColor:'#3a4556',borderWidth:1,cornerRadius:8,padding:10,titleColor:'#f0f3f8',bodyColor:color,titleFont:{size:11},bodyFont:{size:12},callbacks:{title:items=>dates[items[0]?.dataIndex]??'',label:context=>`${label}  ${context.parsed.y?.toFixed(2)}`,afterBody:()=>average===null?'':`${language==='zh'?'20 日均值':'20-session average'}  ${average.toFixed(2)}`}}},scales:{x:{ticks:{color:'#737f92',font:{size:10},maxTicksLimit:5,maxRotation:0,callback:(_,index)=>dates[index]?.slice(5).replace('-','/')},grid:{display:false},border:{display:false}},y:{ticks:{color:'#737f92',font:{size:10},maxTicksLimit:4,padding:8},grid:{color:'#202936'},border:{display:false}}}}});
+  return()=>chart.destroy();
+ },[bars,period,average,label,color,language]);
+ return <canvas ref={ref} role="img" aria-label={`${label} ${language==='zh'?'波动率走势图':'volatility history'}`}/>;
 }

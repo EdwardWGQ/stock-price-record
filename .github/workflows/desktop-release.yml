@@ -1,0 +1,178 @@
+name: Release Desktop
+
+on:
+  workflow_call:
+    inputs:
+      publish:
+        description: Publish after all platform packages pass verification
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified release (otherwise keep a draft)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Select version for the updated website
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node desktop/release-version.cjs
+
+  windows:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Stamp release version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "$env:RELEASE_VERSION" --no-git-tag-version --ignore-scripts --allow-same-version
+      - run: npm test
+      - run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify packaged Windows applications
+        run: node verify-windows.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-windows
+          path: |
+            desktop/release/*.exe
+            desktop/release/windows-verification.json
+          if-no-files-found: error
+          retention-days: 30
+
+  mac:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Stamp release version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --ignore-scripts --allow-same-version
+      - run: npm test
+      - name: Create native application icon
+        run: |
+          mkdir -p assets/icon.iconset
+          for size in 16 32 128 256 512; do
+            sips -z "$size" "$size" assets/icon.png --out "assets/icon.iconset/icon_${size}x${size}.png" >/dev/null
+            double=$((size * 2))
+            sips -z "$double" "$double" assets/icon.png --out "assets/icon.iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns assets/icon.iconset -o assets/icon.icns
+      - name: Build DMG and ZIP
+        run: npm run dist:mac -- --${{ matrix.arch }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify packaged Mac applications
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node verify-mac.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-mac-${{ matrix.arch }}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/mac-verification-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    needs: [prepare, windows, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-release-*
+          path: desktop-downloads
+          merge-multiple: true
+      - name: Stamp release version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --ignore-scripts --allow-same-version
+        working-directory: desktop
+      - name: Verify complete release and prepare checksums
+        run: node desktop/release-files.cjs desktop-downloads
+      - name: Upload every platform before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          PUBLISH_RELEASE: ${{ inputs.publish }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > existing-draft.txt 2>/dev/null; then
+            if [[ "$(cat existing-draft.txt)" != true ]]; then
+              echo 'Refusing to replace a published release' >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" --title "市场观测 · ${RELEASE_TAG#desktop-v} · Windows / macOS" --notes-file desktop-downloads/RELEASE.md
+          fi
+          gh release upload "$RELEASE_TAG" desktop-downloads/* --clobber
+          gh release edit "$RELEASE_TAG" --target "$GITHUB_SHA" --notes-file desktop-downloads/RELEASE.md
+          if [[ "$PUBLISH_RELEASE" == true ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi
+          gh release view "$RELEASE_TAG" --json url --jq '.url' >> "$GITHUB_STEP_SUMMARY"

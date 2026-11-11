@@ -22,8 +22,13 @@ jobs:
         working-directory: desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify packaged Windows applications
+        run: node verify-windows.cjs
+        working-directory: desktop
       - uses: actions/upload-artifact@v4
         with:
           name: US-Equity-Monitor-Windows
-          path: desktop/release/*.exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/windows-verification.json
           retention-days: 30

@@ -17,7 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: node --test desktop/policy.test.cjs desktop/export-policy.test.cjs
+      - run: node --test desktop/policy.test.cjs desktop/export-policy.test.cjs desktop/update-policy.test.cjs desktop/release-version.test.cjs
       - run: npx deno check --config supabase/functions/market-data/deno.json supabase/functions/market-data/index.ts
       - run: npx deno check --config supabase/functions/market-warm/deno.json supabase/functions/market-warm/index.ts
       - run: npx playwright install --with-deps chromium
@@ -55,3 +55,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  desktop_release:
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      publish: true

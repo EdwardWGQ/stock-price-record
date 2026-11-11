@@ -5,13 +5,17 @@ const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
 const { SITE, DEMO, isSite, isExternal } = require('./policy.cjs');
 const { validateExport } = require('./export-policy.cjs');
+const { RELEASES, RELEASE_API, availableUpdate } = require('./update-policy.cjs');
 const offline = pathToFileURL(path.join(__dirname, 'offline.html')).href;
 const smoke = process.argv.includes('--smoke-test');
+const smokeReport = smoke ? process.argv.find(argument => argument.startsWith('--smoke-report='))?.slice('--smoke-report='.length) : null;
 const mac = process.platform === 'darwin';
 let window;
 let showingOffline = false;
 let loadTimer;
 let finishing = false;
+let checkedUpdates = false;
+let checkingUpdates = false;
 const icon = path.join(__dirname, 'assets', 'icon.png');
 if (smoke) app.setPath('userData', path.join(app.getPath('temp'), 'equity-monitor-desktop-smoke'));
 
@@ -51,6 +55,43 @@ async function external(url) {
   if (response === 0) await shell.openExternal(url);
 }
 
+async function checkUpdates(manual = false) {
+  if (checkingUpdates || !window || window.isDestroyed()) return;
+  checkingUpdates = true;
+  try {
+    const response = await fetch(RELEASE_API, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'US-Equity-Monitor-Desktop' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error('Update service unavailable');
+    const release = await response.json();
+    const update = availableUpdate(release, app.getVersion(), process.platform, process.arch);
+    if (!window || window.isDestroyed()) return;
+    if (update) {
+      const { response: choice } = await dialog.showMessageBox(window, {
+        type: 'info', title: '发现新版本', message: `桌面版 ${update.version} 已发布`,
+        detail: `当前版本：${app.getVersion()}。打开下载页查看更新说明并下载新版。已有账户和云端记录可以继续使用。`,
+        buttons: ['下载新版', '稍后'], defaultId: 0, cancelId: 1,
+      });
+      if (choice === 0) await shell.openExternal(update.url);
+    } else if (manual) {
+      await dialog.showMessageBox(window, {
+        type: 'info', title: '检查更新', message: `当前版本：${app.getVersion()}`,
+        detail: '暂未发现适用于这台电脑的更新版本。',
+      });
+    }
+  } catch {
+    if (manual && window && !window.isDestroyed()) {
+      const { response: choice } = await dialog.showMessageBox(window, {
+        type: 'info', title: '检查更新', message: '暂时无法检查更新',
+        detail: '请稍后重试，或打开下载页查看最新版本。',
+        buttons: ['打开下载页', '关闭'], defaultId: 0, cancelId: 1,
+      });
+      if (choice === 0) await shell.openExternal(RELEASES);
+    }
+  } finally { checkingUpdates = false; }
+}
+
 function createWindow() {
   window = new BrowserWindow({
     title: 'US Equity Monitor', width: 1400, height: 900, minWidth: 760, minHeight: 560,
@@ -62,7 +103,7 @@ function createWindow() {
       spellcheck: false,
     },
   });
-  window.once('ready-to-show', () => window?.show());
+  window.once('ready-to-show', () => { if (!smoke) window?.show(); });
   const session = window.webContents.session;
   session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.setPermissionCheckHandler(() => false);
@@ -88,8 +129,12 @@ function createWindow() {
     if (mainFrame && code !== -3) showOffline();
   });
   window.webContents.on('did-finish-load', async () => {
-    clearTimeout(loadTimer); window?.show();
-    if (!smoke || finishing) return;
+    clearTimeout(loadTimer); if (!smoke) window?.show();
+    if (!smoke) {
+      if (!showingOffline && !checkedUpdates) { checkedUpdates = true; void checkUpdates(); }
+      return;
+    }
+    if (finishing) return;
     finishing = true;
     try {
       // did-finish-load precedes React's account initialization. Wait for the
@@ -106,8 +151,11 @@ function createWindow() {
         if (showingOffline || state.demo || state.login) break;
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      process.stdout.write(JSON.stringify({ event: 'desktop-smoke', ...state,
-        sandbox: true, nodeIntegration: false }) + '\n');
+      const report = { event: 'desktop-smoke', version: app.getVersion(), ...state,
+        sandbox: true, nodeIntegration: false };
+      process.stdout.write(JSON.stringify(report) + '\n');
+      // The Windows portable launcher does not forward the application's stdout.
+      if (smokeReport && path.isAbsolute(smokeReport)) await fs.writeFile(smokeReport, JSON.stringify(report) + '\n', 'utf8');
       const expected = process.argv.includes('--offline') ? showingOffline :
         !showingOffline && (process.argv.includes('--demo') ? state.demo : state.login);
       app.exit(expected ? 0 : 1);
@@ -150,6 +198,8 @@ function createWindow() {
     ] },
     { label: '帮助', submenu: [
       { label: '在浏览器打开', click: () => shell.openExternal(SITE) },
+      { label: '检查更新', click: () => void checkUpdates(true) },
+      { label: '下载最新版本', click: () => shell.openExternal(RELEASES) },
       { label: '关于', click: () => dialog.showMessageBox(window, {
         type: 'info', title: 'US Equity Monitor',
         message: `US Equity Monitor ${app.getVersion()}`,

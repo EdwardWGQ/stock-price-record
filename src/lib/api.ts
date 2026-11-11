@@ -2,6 +2,7 @@ import { supabase } from './client';
 import { watchSchema, tradeSchema, instrumentSchema } from './validation';
 import type { WatchItem, Trade, Profile, WatchInput, TradeInput, Instrument, Quote, Bar, Volatility, HistoryResult } from './types';
 import {parallelEach} from './parallel';
+import {sameImportedTrade} from './broker-import';
 const client = () => { if (!supabase) throw new Error('CONFIG'); if (!navigator.onLine) throw new Error('OFFLINE'); return supabase; };
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T { if (result.error) throw new Error(result.error.message); return result.data as T; }
 export async function loadRecords() {
@@ -27,6 +28,18 @@ export async function saveTrade(input: TradeInput, userId: string, revision?: nu
   const query = revision === undefined ? db.from('trades').insert({ ...data, user_id: userId }) : db.from('trades').update(data).eq('id', input.id).eq('revision', revision);
   const rows = unwrap(await query.select('*')) as Trade[];
   if (rows.length !== 1) throw new Error('CONFLICT'); return rows[0];
+}
+export async function importChiefTrades(inputs:TradeInput[],userId:string):Promise<{saved:Trade[];skipped:number}> {
+ if(!inputs.length||inputs.length>200||new Set(inputs.map(row=>row.id)).size!==inputs.length)throw new Error('导入批次无效，最多 200 条且成交编号必须独立。');
+ const data=inputs.map(input=>tradeSchema.parse(input)),db=client();
+ const prior=unwrap(await db.from('trades').select('*').in('id',data.map(row=>row.id)).eq('user_id',userId)) as Trade[];
+ for(const row of prior){const input=data.find(input=>input.id===row.id)!;if(!sameImportedTrade(row,input))throw new Error('该成交编号已存在，但内容不同。请核对结单及已保存记录，不能覆盖导入。');}
+ const missing=data.filter(input=>!prior.some(row=>row.id===input.id));
+ if(!missing.length)return {saved:[],skipped:prior.length};
+ // A single bulk insert is atomic; retrying after an uncertain response rechecks IDs.
+ const inserted=await db.from('trades').insert(missing.map(row=>({...row,user_id:userId}))).select('*');
+ if(inserted.error)throw new Error(inserted.error.message);
+ return {saved:inserted.data as Trade[],skipped:prior.length};
 }
 export async function deleteRecord(table: 'watchlist' | 'trades', id: string, revision: number) {
   const rows = unwrap(await client().from(table).delete().eq('id', id).eq('revision', revision).select('id'));
