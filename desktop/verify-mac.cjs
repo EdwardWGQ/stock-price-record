@@ -39,9 +39,10 @@ for (const mode of modes) {
   const line = output.split('\n').find(value => value.startsWith('{"event":"desktop-smoke"'));
   if (!line) throw new Error(`No application verification output for ${mode}`);
   const state = JSON.parse(line);
-  if (state.background !== 'rgb(0, 0, 0)') throw new Error('Monitor background changed');
+  if (state.version !== version || state.sandbox !== true || state.nodeIntegration !== false) throw new Error('Unexpected packaged application');
+  if (mode === 'live' && !state.login || mode === 'demo' && !state.demo || mode === 'offline' && !state.body.includes('暂时无法连接网站')) throw new Error(`Unexpected ${mode} screen`);
   results.push({ mode, title: state.title, login: state.login, demo: state.demo, sandbox: state.sandbox, nodeIntegration: state.nodeIntegration });
 }
-const report = { platform: 'darwin', arch, native, minimumSystemVersion: minSystem, signature: 'ad-hoc verified', dmgVerified: true, zipVerified: true, checkedAt: new Date().toISOString(), screens: results };
+const report = { platform: 'darwin', arch, version, native, minimumSystemVersion: minSystem, signature: 'ad-hoc verified', dmgVerified: true, zipVerified: true, checkedAt: new Date().toISOString(), screens: results };
 fs.writeFileSync(path.join(__dirname, 'release', `mac-verification-${arch}.json`), JSON.stringify(report, null, 2) + '\n');
 process.stdout.write(JSON.stringify(report) + '\n');

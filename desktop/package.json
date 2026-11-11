@@ -1,6 +1,6 @@
 {
   "name": "us-equity-monitor-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Windows and macOS desktop client for US Equity Monitor",
   "author": "EdwardWGQ",
   "license": "MIT",
@@ -8,7 +8,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "test": "node --test policy.test.cjs export-policy.test.cjs",
+    "test": "node --test policy.test.cjs export-policy.test.cjs update-policy.test.cjs",
     "pack": "node build.cjs --dir",
     "dist": "node build.cjs",
     "dist:mac": "node build.cjs --mac"
@@ -26,6 +26,7 @@
       "policy.cjs",
       "preload.cjs",
       "export-policy.cjs",
+      "update-policy.cjs",
       "offline.html",
       "assets/icon.png",
       "package.json"

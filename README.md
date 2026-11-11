@@ -1,16 +1,32 @@
-# stock-price-record · US EQUITY MONITOR
+# stock-price-record · 市场观测 / MARKET ATLAS
 
 US stock price tracker with market fear sentiment analysis.
 
-本项目采用原来的黑底股票监控网站，采用原始页面布局：橙色标题、多只股票累计收益曲线、右侧自选股、VIX／VXN 波动率区域及下方明细表。前端使用 React + TypeScript + Chart.js，Cloudflare Pages 托管；后端使用 Supabase。
+市场观测目前开放美股：**美股监测**主页包含累计收益曲线、自选股和明细表，**美股市场分析**子页面提供 VIX／VXN 图表及独立分析。前端使用 React + TypeScript + Chart.js，Cloudflare Pages 托管；后端使用 Supabase。
+
+顶部可切换 **美股监测**（`/`）、**美股市场分析**（`/sentiment`）和 **交易日志**（`/journal`）。分析页面支持直接打开、刷新、浏览器前进后退；页面内切换保留股票筛选与指数图表设置。旧的 `/#volSection` 地址会转到 `/sentiment`，未登录时先显示登录页。市场选择器由 `src/lib/markets.ts` 管理，美股已开放，比特币与黄金明确标记为筹备中；筹备中的入口不可跳转。
+
+### 致富成交文件导入
+
+交易日志中的“致富手续费计算器”可独立试算；新建普通美元美股交易默认按致富 App／网交易收费表估算并写入手续费。输入股数、每股成交价及成交时间后，分别计算佣金、平台费、清算费、SEC 与 FINRA 项目。编辑现有记录默认使用已保存的实际手续费，避免自动重算历史记录。
+
+计算规则保存在 `src/lib/chief-fees.ts`，参考用户提供的收费截图及致富 2026 年 10 月完整收费 PDF。平台费每股 US$0.008、最低 US$0.99；清算费每股 US$0.003、最低 US$0.01；两者各自上限为成交额 3%，最低收费优先。网交易佣金为零，电话交易佣金每股 US$0.03、最低 US$20，免平台费。SEC 使用截图的 0.00206%（十进制乘数 0.0000206）、最低 US$0.01，默认仅卖出，可按结单调整为双向；各项费用默认四舍五入至美分，可选择分别向上取整。
+
+该费率快照仅用于美东成交日期 2026-10-01 至 2026-12-31，此间 FINRA 临时豁免。其他日期会暂停自动估算，需更新费率或手动填写。0 佣资格、其他账户议价收费及实际取整以致富结单为准。月供、期权、融资利息、汇兑和 ADR 托管等另行服务费用不纳入本计算器。
+
+交易日志提供“致富成交导入”：下载空白 CSV 模板，填写实际成交后先预览，再确认保存。当前是模板导入，没有与致富官方 API 建立账户连接，也没有验证原始致富 PDF／Excel／CSV 结单布局；原始文件适配需要脱敏样本。
+
+当前支持美元美股实际成交，每次最多 200 条、文件不超过 1 MB。每笔分笔成交使用独立成交编号；账户别名用于区分账户，不需要券商密码、验证码或真实账号。成交时间须包含真实日期及时间，并明确填写记录时区（例如 `Asia/Hong_Kong` 或 `America/New_York`）；手续费不可为空，不猜测缺失时间或金额。文件本地解析，只将用户确认的结构化成交保存到自己的交易记录。
+
+账户用户 ID、账户别名和成交编号共同生成固定记录 ID。保存前检查服务器已存在的记录，相同内容跳过，内容不同停止。新增记录使用单次批量插入；网络中断后的再次导入仍先检查这些 ID。功能不处理持仓快照、港股、期权、期货、汇兑或自动下单。
 
 ## 第一次使用：直接打开网站
 
 如果只是使用网站，不需要下载源码，也不需要安装 Node.js 或 Python。
 
-Windows 用户也可直接从 **[桌面版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/tag/desktop-v1.0.0)** 的 **Assets（资源）** 下载 EXE。安装版名称含 `nsis`，免安装版名称含 `portable`；无需安装 Python 或 Node.js。不要把 `Source code (zip)` 当成安装包。使用方法、联网要求和重新构建步骤见 [DESKTOP.md](DESKTOP.md)。
+Windows 用户也可直接从 **[桌面版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/latest)** 的 **Assets（资源）** 下载 EXE。安装版名称含 `nsis`，免安装版名称含 `portable`；无需安装 Python 或 Node.js。不要把 `Source code (zip)` 当成安装包。使用方法、联网要求和重新构建步骤见 [DESKTOP.md](DESKTOP.md)。
 
-Mac 用户可从 **[Mac 版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/tag/desktop-mac-v1.0.0)** 下载 DMG。Apple 芯片选择 `mac-arm64`，Intel 选择 `mac-x64`；支持 macOS 13 或更新系统。双击 DMG 后把应用拖到 Applications。首次打开的系统提示处理见 [DESKTOP.md](DESKTOP.md) 和下载页的 `README-macOS.txt`。
+Mac 用户可从 **[Mac 版下载页面](https://github.com/EdwardWGQ/stock-price-record/releases/latest)** 下载 DMG。Apple 芯片选择 `mac-arm64`，Intel 选择 `mac-x64`；支持 macOS 13 或更新系统。双击 DMG 后把应用拖到 Applications。首次打开的系统提示处理见 [DESKTOP.md](DESKTOP.md) 和下载页的 `README-macOS.txt`。
 
 1. 打开 **[正式网站](https://stock-atlas.pages.dev/)**。
 2. 首次使用点击 **“创建账户”**。

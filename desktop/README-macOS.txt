@@ -1,4 +1,4 @@
-US Equity Monitor 1.0.0 · macOS
+市场观测 / US Equity Monitor {{version}} · macOS
 
 系统要求：macOS 13 Ventura 或更新系统。无需 Python、Node.js 或源码。
 
@@ -13,14 +13,16 @@ US Equity Monitor 1.0.0 · macOS
 3. 使用现有网站账号登录；新用户注册并点击邮箱确认链接。
 
 本版本使用本地 ad-hoc 签名保证包内文件完整性，没有 Apple Developer ID 签名或 Apple 公证。
-首次打开可能被 macOS 拦截。核对 GitHub 发布来源与 SHA256SUMS-macOS.txt 后，尝试打开一次，
+首次打开可能被 macOS 拦截。核对 GitHub 发布来源与 SHA256SUMS.txt 后，尝试打开一次，
 到“系统设置 → 隐私与安全性 → 仍要打开”，按系统提示完成。
 如系统仍报告应用损坏，可只为该应用移除隔离属性。在终端运行：
 xattr -dr com.apple.quarantine "/Applications/US Equity Monitor.app"
 该命令只针对这一个应用，不需要 sudo；无需关闭系统 Gatekeeper。
 
 登录、行情和云端保存需要联网。正式网址：https://stock-atlas.pages.dev/
-网页更新会自动同步，Electron 客户端本身升级需要下载新安装包。
+网页更新会自动同步。启动后发现新版本会提示下载；也可在“帮助 → 检查更新”查看。
+退出旧版，将新版应用放入 Applications 即可升级；已有网站账号和云端记录可继续使用。
+1.0.0 没有更新提示，请先手动下载本版。最新版下载：https://github.com/EdwardWGQ/stock-price-record/releases/latest
 关闭窗口后应用仍在 Dock，可点 Dock 图标重开；Command+Q 完全退出，Command+R 刷新。
 邮件确认或密码重置在浏览器完成后，回到桌面应用登录。
 导出交易记录时自行选择 JSON 文件的保存位置。
