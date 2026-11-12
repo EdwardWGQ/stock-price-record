@@ -1,12 +1,33 @@
 import {describe,it,expect} from 'vitest';
-import {chiefColumns,parseDelimited,parseChiefTemplate,chiefTradeId,sameImportedTrade} from '../src/lib/broker-import';
+import {chiefColumns,parseDelimited,parseChiefTemplate,parseChiefManualEntries,chiefTradeId,sameImportedTrade,type ChiefManualEntry} from '../src/lib/broker-import';
 
 const user='11111111-1111-4111-8111-111111111111';
 const headers=chiefColumns.join(',');
 const line='FILL-001,AAPL,Apple,NASDAQ,USD,买入,10,200.50,1,2026-11-09 10:30:00,Asia/Hong_Kong,长期配置';
 const csv=headers+'\n'+line;
+const manual:ChiefManualEntry={reference:'FILL-001',symbol:'AAPL',name:'Apple',exchange:'NASDAQ',currency:'USD',side:'buy',quantity:'10',price:'200.50',fees:'1',occurred_at:'2026-11-09T10:30:00',record_timezone:'Asia/Hong_Kong',notes:'长期配置'};
 
 describe('reviewable Chief template imports',()=>{
+ it('gives manual and file entries the same validated execution identity',async()=>{
+  const file=await parseChiefTemplate(csv,user,'致富美股');
+  const typed=await parseChiefManualEntries([{...manual,symbol:' aapl ',quantity:' 10 '}],user,'致富美股');
+  expect(typed).toEqual(file);
+ });
+ it('preserves typed punctuation and newlines without treating them as extra columns',async()=>{
+  const notes='逢低买入, "长期持有"\n第二行\t备注';
+  const {trades}=await parseChiefManualEntries([{...manual,name:'Apple, Inc.',fees:'0',notes}],user,'致富美股');
+  expect(trades[0]).toMatchObject({name:'Apple, Inc.',fees:'0'});
+  expect(trades[0].notes.endsWith(notes)).toBe(true);
+ });
+ it('validates each manual execution and blocks missing fees, duplicate IDs and oversized batches',async()=>{
+  await expect(parseChiefManualEntries([],user,'致富美股')).rejects.toThrow('至少填写一笔');
+  await expect(parseChiefManualEntries([{...manual,fees:''}],user,'致富美股')).rejects.toThrow('第 1 笔成交：');
+  await expect(parseChiefManualEntries([{...manual,quantity:'0'}],user,'致富美股')).rejects.toThrow('必须大于零');
+  await expect(parseChiefManualEntries([{...manual,occurred_at:'2026-11-09'}],user,'致富美股')).rejects.toThrow('真实日期与时间');
+  await expect(parseChiefManualEntries([{...manual,record_timezone:'invalid'}],user,'致富美股')).rejects.toThrow('记录时区无效');
+  await expect(parseChiefManualEntries([manual,manual],user,'致富美股')).rejects.toThrow('第 2 笔成交：成交编号重复');
+  await expect(parseChiefManualEntries(Array(201).fill(manual),user,'致富美股')).rejects.toThrow('最多导入 200 条');
+ });
  it('preserves amounts and the original timezone instead of guessing the broker clock',async()=>{
   const result=await parseChiefTemplate(csv,user,'致富美股');
   expect(result.trades[0]).toMatchObject({symbol:'AAPL',quantity:'10',price:'200.5',fees:'1',side:'buy',occurred_at:'2026-11-09T02:30:00Z',record_timezone:'Asia/Hong_Kong'});

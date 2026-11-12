@@ -5,6 +5,7 @@ import {resolveLocal,validTimezone} from './time';
 
 export const chiefColumns=['成交编号','股票代码','公司名称','交易所','币种','交易方向','数量','成交价格','手续费','成交时间','记录时区','备注'] as const;
 const keys=['reference','symbol','name','exchange','currency','side','quantity','price','fees','occurred_at','record_timezone','notes'] as const;
+export type ChiefManualEntry=Record<typeof keys[number],string>;
 export interface ChiefImport {trades:TradeInput[];references:string[]}
 const prefix='[CHIEF-IMPORT-v1]';
 
@@ -46,9 +47,20 @@ function amount(value:string,zero:boolean):string {
 }
 
 export async function parseChiefTemplate(text:string,userId:string,accountAlias:string):Promise<ChiefImport> {
- if(!/^[\p{L}\p{N} _.-]{1,40}$/u.test(accountAlias))throw new Error('请填写 1–40 字的账户别名，例如“致富美股”；不要填写真实账号。');
  const rows=parseDelimited(text),headers=rows.shift();
- if(!headers||!rows.length)throw new Error('文件中没有成交记录，请按模板填入实际成交数据。');
+ return parseChiefRows(headers,rows,userId,accountAlias,'file');
+}
+
+/** Manual entry and file imports share validation and execution IDs. */
+export async function parseChiefManualEntries(entries:ChiefManualEntry[],userId:string,accountAlias:string):Promise<ChiefImport> {
+ const rows=entries.map(entry=>keys.map(key=>entry[key].trim()));
+ return parseChiefRows([...keys],rows,userId,accountAlias,'manual');
+}
+
+async function parseChiefRows(headers:string[]|undefined,rows:string[][],userId:string,accountAlias:string,source:'file'|'manual'):Promise<ChiefImport> {
+ if(!/^[\p{L}\p{N} _.-]{1,40}$/u.test(accountAlias))throw new Error('请填写 1–40 字的账户别名，例如“致富美股”；不要填写真实账号。');
+ if(!headers||!rows.length)throw new Error(source==='manual'?'请至少填写一笔实际成交。':'文件中没有成交记录，请按模板填入实际成交数据。');
+ if(rows.length>200)throw new Error('每次最多导入 200 条成交记录，请分批保存。');
  const mapped=headers.map(header=>{const n=chiefColumns.indexOf(header as typeof chiefColumns[number]);return n<0?header:keys[n];});
  if(new Set(mapped).size!==mapped.length)throw new Error('表头有重复字段。');
  const missing=keys.filter(key=>key!=='notes'&&!mapped.includes(key));
@@ -76,7 +88,7 @@ export async function parseChiefTemplate(text:string,userId:string,accountAlias:
    const parsed=tradeSchema.safeParse(input);
    if(!parsed.success)throw new Error('股票信息、金额或日期格式无效；金额最多 12 位整数和 8 位小数，备注最多约 1800 字。');
    trades.push(parsed.data);references.push(reference);
-  }catch(error){throw new Error(`第 ${index+2} 行：${error instanceof Error?error.message:'无法解析。'}`);}
+  }catch(error){throw new Error(`${source==='manual'?`第 ${index+1} 笔成交`:`第 ${index+2} 行`}：${error instanceof Error?error.message:'无法解析。'}`);}
  }
  return {trades,references};
 }

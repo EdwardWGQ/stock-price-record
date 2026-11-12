@@ -57,6 +57,85 @@ test('previews Chief template data, requires review and skips server duplicates 
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await dialog.screenshot({path:'artifacts/chief-import-preview-mobile.png'});
 });
+test('manually enters Chief executions, invalidates edited previews and skips a later file duplicate',async({page})=>{
+ await signedIn(page);
+ let savedRows:Record<string,unknown>[]=[],insertCalls=0;
+ await page.route('https://test-project.supabase.co/rest/v1/trades**',route=>{
+  if(route.request().method()==='POST'){
+   insertCalls++;
+   const inputs=route.request().postDataJSON() as Record<string,unknown>[];
+   const saved=inputs.map(row=>({...row,user_id:user.id,revision:1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
+   savedRows.push(...saved);
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(saved)});
+  }
+  const ids=new URL(route.request().url()).searchParams.get('id');
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(ids?savedRows.filter(row=>ids.includes(String(row.id))):savedRows)});
+ });
+ await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'}));
+ await page.goto('/journal');
+ await page.getByRole('button',{name:'致富成交导入',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'致富成交记录导入'});
+ await dialog.getByRole('button',{name:'手动输入',exact:true}).click();
+ await dialog.getByRole('button',{name:'预览成交',exact:true}).click();
+ await expect(dialog.locator('.broker-import-preview')).toHaveCount(0);
+ const first=dialog.getByRole('region',{name:'第 1 笔成交',exact:true});
+ await first.getByLabel('成交编号',{exact:true}).fill('FILL-001');
+ await first.getByLabel('股票代码',{exact:true}).fill('aapl');
+ await first.getByLabel('公司名称',{exact:true}).fill('Apple');
+ await first.getByLabel('数量',{exact:true}).fill('10');
+ await first.getByLabel('成交价格（USD）',{exact:true}).fill('200.50');
+ await first.getByLabel('手续费（USD）',{exact:true}).fill('1');
+ await first.getByLabel('成交时间',{exact:true}).fill('2026-11-09T10:30');
+ await first.getByLabel('备注（选填）',{exact:true}).fill('长期配置');
+ await dialog.getByRole('button',{name:'预览成交',exact:true}).click();
+ await expect(dialog.locator('.broker-import-preview')).toContainText('AAPL');
+ await expect(dialog.getByRole('button',{name:'确认导入 1 条',exact:true})).toBeDisabled();
+ await dialog.getByRole('checkbox').check();
+ await first.getByLabel('数量',{exact:true}).fill('11');
+ await expect(dialog.locator('.broker-import-preview')).toHaveCount(0);
+ await expect(dialog.getByRole('button',{name:'确认导入',exact:true})).toBeDisabled();
+ await first.getByLabel('数量',{exact:true}).fill('10');
+ await dialog.getByRole('button',{name:'添加一笔成交',exact:true}).click();
+ const second=dialog.getByRole('region',{name:'第 2 笔成交',exact:true});
+ await second.getByLabel('成交编号',{exact:true}).fill('FILL-002');
+ await second.getByLabel('股票代码',{exact:true}).fill('MSFT');
+ await second.getByLabel('公司名称',{exact:true}).fill('Microsoft');
+ await second.getByLabel('交易方向',{exact:true}).selectOption('sell');
+ await second.getByLabel('数量',{exact:true}).fill('2');
+ await second.getByLabel('成交价格（USD）',{exact:true}).fill('400');
+ await second.getByLabel('手续费（USD）',{exact:true}).fill('0');
+ await second.getByLabel('成交时间',{exact:true}).fill('2026-11-09T11:30');
+ await dialog.getByRole('button',{name:'添加一笔成交',exact:true}).click();
+ await dialog.getByRole('button',{name:'删除第 3 笔成交',exact:true}).click();
+ await dialog.getByRole('button',{name:'文件导入',exact:true}).click();
+ await dialog.getByRole('button',{name:'手动输入',exact:true}).click();
+ await expect(first.getByLabel('成交编号',{exact:true})).toHaveValue('FILL-001');
+ await expect(second.getByLabel('成交编号',{exact:true})).toHaveValue('FILL-002');
+ await dialog.getByRole('button',{name:'预览成交',exact:true}).click();
+ await expect(dialog.locator('.broker-import-preview tbody tr')).toHaveCount(2);
+ await dialog.locator('.broker-import-body').evaluate(element=>{element.scrollTop=0;});
+ await dialog.screenshot({path:'artifacts/chief-manual-input-desktop.png'});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+ expect(await dialog.locator('.broker-manual-entry').first().evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+ await dialog.locator('.broker-import-body').evaluate(element=>{element.scrollTop=0;});
+ await dialog.screenshot({path:'artifacts/chief-manual-input-mobile.png'});
+ await dialog.getByRole('checkbox').check();
+ await dialog.getByRole('button',{name:'确认导入 2 条',exact:true}).click();
+ await expect(dialog).toContainText('已导入 2 条，跳过 0 条');
+ expect(insertCalls).toBe(1);
+ expect(savedRows).toEqual(expect.arrayContaining([expect.objectContaining({symbol:'AAPL',quantity:'10',occurred_at:'2026-11-09T02:30:00Z'}),expect.objectContaining({symbol:'MSFT',side:'sell',fees:'0'})]));
+ await dialog.getByRole('button',{name:'完成',exact:true}).click();
+ await page.getByRole('button',{name:'致富成交导入',exact:true}).click();
+ const csv=chiefColumns.join(',')+'\nFILL-001,AAPL,Apple,NASDAQ,USD,买入,10,200.5,1,2026-11-09 10:30:00,Asia/Hong_Kong,长期配置';
+ await dialog.getByLabel('致富成交文件').setInputFiles({name:'chief-reviewed.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+ await dialog.getByRole('button',{name:'读取并预览',exact:true}).click();
+ await dialog.getByRole('checkbox').check();
+ await dialog.getByRole('button',{name:'确认导入 1 条',exact:true}).click();
+ await expect(dialog).toContainText('已导入 0 条，跳过 1 条');
+ expect(insertCalls).toBe(1);
+});
+
 async function signedIn(page:Page,watchlist:unknown[]=[]) {
  await page.addInitScript(user=>{
   localStorage.setItem('sb-test-project-auth-token',JSON.stringify({user,access_token:'browser-test-access-token',refresh_token:'browser-test-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,token_type:'bearer',expires_in:3600}));
