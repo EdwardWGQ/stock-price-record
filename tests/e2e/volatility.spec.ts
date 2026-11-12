@@ -237,6 +237,86 @@ async function signedIn(page:Page,watchlist:unknown[]=[]) {
  await page.route('https://test-project.supabase.co/auth/v1/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(user)}));
 }
 
+test('exposes admin mode only after a database role check, shows user records and polls new buys',async({page})=>{
+ await signedIn(page);
+ await page.clock.install();
+ const memberId='33333333-3333-4333-8333-333333333333';
+ const account={id:memberId,email:'other-member@example.com',phone:'',display_name:'Other Member',created_at:'2026-11-01T00:00:00Z',updated_at:'2026-11-01T00:00:00Z',last_sign_in_at:'2026-11-12T02:00:00Z',email_confirmed_at:'2026-11-01T00:00:00Z',banned_until:null,is_admin:false,watch_count:1,trade_count:1};
+ const tracked={...stock,user_id:memberId,notes:'Member private stock note'};
+ const trade={...tracked,id:'44444444-4444-4444-8444-444444444444',side:'buy',quantity:'2',price:'200',fees:'1',occurred_at:'2026-11-09T14:30:00Z',record_timezone:'Asia/Shanghai',created_at:'2026-11-09T15:00:00Z',updated_at:'2026-11-09T15:00:00Z',notes:'Monthly contribution'};
+ let rows=[trade],overviewCalls=0,detailsCalls=0,forbidden=false;
+ await page.route('**/rest/v1/rpc/admin_status',route=>route.fulfill({status:200,contentType:'application/json',body:'true'}));
+ await page.route('**/rest/v1/rpc/admin_overview',route=>{
+  overviewCalls++;
+  if(forbidden)return route.fulfill({status:403,contentType:'application/json',body:'{"code":"42501","message":"ADMIN_FORBIDDEN"}'});
+  const search=route.request().postDataJSON().p_search;
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({fetched_at:'2026-11-12T03:00:00Z',user_count:2,watch_count:1,trade_count:rows.length,filtered_count:search.includes('missing')?0:1,users:search.includes('missing')?[]:[{...account,trade_count:rows.length}],recent_trades:rows.map(row=>({...row,email:account.email}))})});
+ });
+ await page.route('**/rest/v1/rpc/admin_user_detail',route=>{
+  detailsCalls++;
+  expect(route.request().postDataJSON().p_user_id).toBe(memberId);
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({fetched_at:'2026-11-12T03:00:00Z',user:{...account,trade_count:rows.length},profile:{user_id:memberId,language:'zh',timezone:'Asia/Shanghai',baseline_date:'2026-06-01'},watchlist:[tracked],trade_count:rows.length,trades:rows,positions:[{symbol:'AAPL',exchange:'NASDAQ',currency:'USD',name:'Apple',bought_quantity:String(rows.length*2),sold_quantity:'0',quantity:String(rows.length*2),trade_count:rows.length,last_trade_at:rows.at(-1)?.occurred_at}]})});
+ });
+ await page.goto('/journal');
+ const entry=page.getByRole('button',{name:'管理员模式',exact:true});
+ await expect(entry).toBeVisible();
+ await expect(page.getByRole('main',{name:'管理员模式',exact:true})).toHaveCount(0);
+ expect(overviewCalls).toBe(0);
+ await entry.click();
+ const panel=page.getByRole('main',{name:'管理员模式',exact:true});
+ await expect(panel.getByRole('region',{name:'注册用户',exact:true})).toContainText(account.email);
+ await panel.getByRole('button',{name:`查看 ${account.email} 数据`,exact:true}).click();
+ const detail=panel.getByRole('region',{name:'用户数据详情',exact:true});
+ await expect(detail).toContainText('持仓统计');
+ await expect(detail).toContainText('Member private stock note');
+ await detail.locator('.admin-record-details summary').first().click();
+ await expect(detail).toContainText(tracked.id);
+ await expect(detail).toContainText('Asia/Shanghai');
+ await page.screenshot({path:'artifacts/admin-mode-desktop.png',fullPage:true});
+ rows=[{...trade,id:'55555555-5555-4555-8555-555555555555',occurred_at:'2026-11-12T14:30:00Z',created_at:'2026-11-12T15:00:00Z',notes:'New additional buy'},trade];
+ const beforePoll=overviewCalls;
+ await page.clock.runFor(10000);
+ await expect.poll(()=>overviewCalls).toBeGreaterThan(beforePoll);
+ await expect(detail).toContainText('交易记录 · 共 2 笔');
+ await expect(detail).toContainText('New additional buy');
+ expect(detailsCalls).toBeGreaterThan(1);
+ for(const width of [768,390,320]){
+  await page.setViewportSize({width,height:900});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ }
+ await page.setViewportSize({width:390,height:900});
+ await page.screenshot({path:'artifacts/admin-mode-mobile.png',fullPage:true});
+ const stored=await page.evaluate(()=>JSON.stringify(Object.values(localStorage)));
+ expect(stored).not.toContain('other-member@example.com');
+ expect(stored).not.toContain('Member private stock note');
+ await panel.getByLabel('搜索用户邮箱').fill('missing');
+ await panel.getByRole('button',{name:'查询',exact:true}).click();
+ await expect(panel.getByRole('region',{name:'注册用户',exact:true})).toContainText('没有匹配的用户');
+ forbidden=true;
+ await panel.getByRole('button',{name:'刷新数据',exact:true}).click();
+ await expect(panel).toHaveCount(0);
+ await expect(entry).toHaveCount(0);
+ await expect(page.locator('.journal-section')).toBeVisible();
+});
+
+test('keeps the administrator entry out of the login screen and out of ordinary accounts with forged metadata',async({page})=>{
+ await page.route('**/rest/v1/rpc/admin_status',route=>route.fulfill({status:200,contentType:'application/json',body:'false'}));
+ await page.goto('/journal');
+ await expect(page.locator('.auth-card')).toBeVisible();
+ await expect(page.getByRole('button',{name:'管理员模式',exact:true})).toHaveCount(0);
+ await signedIn(page);
+ await page.addInitScript(()=>{
+  const key='sb-test-project-auth-token';const session=JSON.parse(localStorage.getItem(key)!);
+  session.user.user_metadata={admin:true,role:'admin'};localStorage.setItem(key,JSON.stringify(session));
+ });
+ let adminQueries=0;
+ await page.route('**/rest/v1/rpc/admin_overview',route=>{adminQueries++;return route.fulfill({status:403,contentType:'application/json',body:'{"code":"42501","message":"ADMIN_FORBIDDEN"}'});});
+ await page.goto('/journal');
+ await expect(page.locator('.journal-section')).toBeVisible();
+ await expect(page.getByRole('button',{name:'管理员模式',exact:true})).toHaveCount(0);
+ expect(adminQueries).toBe(0);
+});
+
 test('keeps a requested sentiment URL through sign-in and reuses its data across page switches',async({page})=>{
  let volatilityRequests=0;
  await page.route('https://test-project.supabase.co/auth/v1/**',route=>{
