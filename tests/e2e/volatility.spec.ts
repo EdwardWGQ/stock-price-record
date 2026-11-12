@@ -159,6 +159,8 @@ test('records subsequent purchases of an existing stock with independent times a
  await expect(page.locator('.journal-section tbody tr')).toHaveCount(2);
  await page.getByRole('button',{name:'追加买入 / 定投',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'追加买入 / 定投',exact:true});
+ await expect(dialog.getByLabel('重复时间处理',{exact:true})).toHaveCount(0);
+ await expect(dialog).not.toContainText('重复时间处理');
  await expect(dialog.getByRole('button',{name:'保存本次买入',exact:true})).toBeDisabled();
  const picker=dialog.getByLabel('已有股票',{exact:true});
  await expect(picker.locator('option')).toHaveCount(3);
