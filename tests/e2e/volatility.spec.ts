@@ -136,6 +136,93 @@ test('manually enters Chief executions, invalidates edited previews and skips a 
  expect(insertCalls).toBe(1);
 });
 
+test('records subsequent purchases of an existing stock with independent times and preserves original records',async({page})=>{
+ await signedIn(page,[stock]);
+ const original={...stock,id:'33333333-3333-4333-8333-333333333333',side:'buy',quantity:'5',price:'190',fees:'1',occurred_at:'2026-11-01T13:30:00Z',record_timezone:'America/New_York',notes:'首次买入'};
+ const other={...original,id:'44444444-4444-4444-8444-444444444444',symbol:'MSFT',name:'Microsoft'};
+ let savedRows:Record<string,unknown>[]=[original,other],writes=0;
+ await page.route('https://test-project.supabase.co/rest/v1/trades**',route=>{
+  if(route.request().method()==='POST'){
+   writes++;
+   const input=route.request().postDataJSON() as Record<string,unknown>;
+   expect(input.side).toBe('buy');
+   expect(input.id).not.toBe(original.id);
+   const saved={...input,revision:1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+   savedRows.push(saved);
+   return route.fulfill({status:201,contentType:'application/json',body:JSON.stringify([saved])});
+  }
+  expect(route.request().method()).toBe('GET');
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(savedRows)});
+ });
+ await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'}));
+ await page.goto('/journal');
+ await expect(page.locator('.journal-section tbody tr')).toHaveCount(2);
+ await page.getByRole('button',{name:'追加买入 / 定投',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'追加买入 / 定投',exact:true});
+ await expect(dialog.getByRole('button',{name:'保存本次买入',exact:true})).toBeDisabled();
+ const picker=dialog.getByLabel('已有股票',{exact:true});
+ await expect(picker.locator('option')).toHaveCount(3);
+ await picker.selectOption({label:'AAPL · Apple · NASDAQ'});
+ await expect(dialog.getByLabel('交易方向',{exact:true})).toHaveValue('buy');
+ await expect(dialog.getByLabel('交易方向',{exact:true})).toBeDisabled();
+ await expect(dialog.getByLabel('数量',{exact:true})).toHaveValue('');
+ await expect(dialog.getByLabel('每股价格',{exact:true})).toHaveValue('');
+ await expect(dialog.getByLabel('备注',{exact:true})).toHaveValue('');
+ await dialog.getByLabel('买入日期和时间',{exact:true}).fill('2026-11-09T22:30');
+ await dialog.getByLabel('记录时区',{exact:true}).selectOption('Asia/Shanghai');
+ await dialog.getByLabel('数量',{exact:true}).fill('2');
+ await dialog.getByLabel('每股价格',{exact:true}).fill('200');
+ await dialog.getByLabel('手续费计算方式',{exact:true}).selectOption('manual');
+ await dialog.getByLabel('手续费',{exact:true}).fill('1');
+ await dialog.getByLabel('备注',{exact:true}).fill('每月定投');
+ await dialog.evaluate(element=>{element.scrollTop=0;});
+ await dialog.screenshot({path:'artifacts/additional-buy-desktop.png'});
+ await dialog.getByRole('button',{name:'保存本次买入',exact:true}).click();
+ await expect(dialog).toHaveCount(0);
+ await expect(page.locator('.journal-section tbody tr')).toHaveCount(3);
+ const firstBuy=savedRows.at(-1)!;
+ expect(firstBuy).toMatchObject({symbol:'AAPL',quantity:'2',price:'200',occurred_at:'2026-11-09T14:30:00Z',record_timezone:'Asia/Shanghai',notes:'每月定投'});
+ const filter=page.getByLabel('按股票查看交易',{exact:true});
+ await filter.selectOption({label:'AAPL · NASDAQ · USD'});
+ await expect(page.locator('.journal-section tbody tr')).toHaveCount(2);
+ await expect(page.locator('.journal-filter')).toContainText('买入 2 笔');
+ await page.locator('.journal-section tbody tr').first().getByRole('button',{name:'追加买入 / 定投 AAPL NASDAQ',exact:true}).click();
+ await expect(picker).toHaveValue(JSON.stringify(['AAPL','NASDAQ','USD']));
+ await expect(dialog.getByLabel('数量',{exact:true})).toHaveValue('');
+ await expect(dialog.getByLabel('备注',{exact:true})).toHaveValue('');
+ await dialog.getByRole('button',{name:'取消',exact:true}).click();
+ expect(writes).toBe(1);
+ await page.getByRole('navigation',{name:'页面切换'}).getByRole('link',{name:'美股监测',exact:true}).click();
+ await page.getByRole('button',{name:'追加买入 / 定投 AAPL detail',exact:true}).click();
+ await expect(picker).toHaveValue(JSON.stringify(['AAPL','NASDAQ','USD']));
+ await dialog.getByLabel('买入日期和时间',{exact:true}).fill('2026-11-10T22:45');
+ await dialog.getByLabel('记录时区',{exact:true}).selectOption('Asia/Shanghai');
+ await dialog.getByLabel('数量',{exact:true}).fill('3');
+ await dialog.getByLabel('每股价格',{exact:true}).fill('210');
+ await dialog.getByLabel('手续费计算方式',{exact:true}).selectOption('manual');
+ await dialog.getByLabel('手续费',{exact:true}).fill('0.5');
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+ await dialog.evaluate(element=>{element.scrollTop=0;});
+ await dialog.screenshot({path:'artifacts/additional-buy-mobile.png'});
+ await dialog.getByRole('button',{name:'保存本次买入',exact:true}).click();
+ await expect(dialog).toHaveCount(0);
+ expect(writes).toBe(2);
+ expect(savedRows).toHaveLength(4);
+ expect(new Set(savedRows.map(row=>row.id)).size).toBe(4);
+ expect(savedRows[0]).toEqual(original);
+ expect(savedRows.at(-1)).toMatchObject({symbol:'AAPL',quantity:'3',occurred_at:'2026-11-10T14:45:00Z'});
+ await page.reload();
+ await expect(page.getByLabel('当前统一起始日期')).toHaveValue('2026-06-01');
+ await page.getByRole('navigation',{name:'页面切换'}).getByRole('link',{name:'交易日志',exact:true}).click();
+ await page.getByLabel('按股票查看交易',{exact:true}).selectOption({label:'AAPL · NASDAQ · USD'});
+ await expect(page.locator('.journal-section tbody tr')).toHaveCount(3);
+ await expect(page.locator('.journal-section tbody tr').first()).toContainText('2026年11月10日');
+ await expect(page.locator('.journal-section tbody')).toContainText('2026年11月09日');
+ await expect(page.locator('.journal-section tbody')).toContainText('2026年11月01日');
+ await page.screenshot({path:'artifacts/additional-buy-history-mobile.png',fullPage:true});
+});
+
 async function signedIn(page:Page,watchlist:unknown[]=[]) {
  await page.addInitScript(user=>{
   localStorage.setItem('sb-test-project-auth-token',JSON.stringify({user,access_token:'browser-test-access-token',refresh_token:'browser-test-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,token_type:'bearer',expires_in:3600}));

@@ -154,6 +154,9 @@ thead{background:#000}.monitor-app{max-width:100%;overflow-x:hidden}.main-grid,.
 .prepared-note{padding:5px 10px;color:#b7a185;background:#100e08;font-size:10px}
 .journal-actions{display:flex;gap:8px;align-items:center}
 .journal-actions{flex-wrap:wrap;justify-content:flex-end}.journal-heading{gap:12px;align-items:center}
+.journal-filter{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin:14px 0}.journal-filter label{width:min(310px,100%);font-size:11px}.journal-filter select{font-size:12px}.journal-filter .help{margin:0;flex:1;min-width:200px}.journal-row-actions{display:flex;align-items:center;gap:10px}.journal-timezone{display:block;font-size:9px;color:#888;margin-top:4px}.journal-buy-button{background:#291b0d}.journal-empty{padding:20px 0}.repeat-buy-selected{display:flex;align-items:center;gap:12px;padding:12px;background:#111;border:1px solid #333;flex-wrap:wrap}.repeat-buy-selected strong{color:#f93}.repeat-buy-selected span{font-size:11px;color:#aaa}.repeat-buy-stock select{font-size:12px}.detail-buy-button{margin-right:10px;color:#f93}
+.repeat-buy-dialog .dialog-head{position:sticky;top:0;z-index:2}.repeat-buy-dialog .dialog-footer{position:sticky;bottom:0;background:#080808;z-index:2;padding-bottom:8px}
+@media(max-width:600px){.journal-filter{align-items:stretch;gap:8px}.journal-filter label{width:100%}.journal-filter .help{min-width:0;flex-basis:100%}.journal-heading{flex-wrap:wrap}.journal-row-actions{gap:7px}}
 .chief-calculator-dialog{width:min(670px,94vw)}.chief-calculator-body{padding:20px;max-height:72vh;overflow:auto}.chief-calculator-dialog>.dialog-footer{padding:13px 20px;margin:0}
 .chief-calculator-body>.help{font-size:12px;color:#9aaabd;line-height:1.8;margin-bottom:16px}
 .chief-calculator-body .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

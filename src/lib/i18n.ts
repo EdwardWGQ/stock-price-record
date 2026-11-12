@@ -3,6 +3,7 @@ const en = {
   tagline: 'Your market, in perspective.', overview: 'Overview', journal: 'Trading journal', settings: 'Preferences',
   watchlist: 'My watchlist', watchHint: 'Follow the companies you believe in. Set your own starting point.',
   addStock: 'Add stock', addTrade: 'Record trade', refresh: 'Refresh quotes', export: 'Export my data',
+  additionalBuy:'Add purchase / DCA',buyAgain:'Buy again',existingStock:'Existing stock',chooseExistingStock:'Choose a stock from your watchlist or trades',additionalBuyHint:'Record an executed additional purchase or DCA contribution. Stock details are reused; quantity, price and time belong to this new purchase.',additionalBuyTimeHint:'Enter the actual purchase time in the selected record time zone. Add a note such as “monthly DCA” if useful.',tradeStockFilter:'Filter trades by stock',allTradeStocks:'All stocks',noStockTrades:'No trades recorded for this stock yet.', purchaseTime:'Purchase date & time',savePurchase:'Save this purchase',
   tracked: 'Stocks followed', average: 'Average price return', alerts: 'Drawdown alerts', coverage: 'With baseline & quote',
   averageHint: 'Equal-weight price change, not portfolio performance', alertHint: 'Based on your individual thresholds',
   all: 'All markets', search: 'Filter by symbol or company', company: 'Company / exchange', latest: 'Latest price', daily: 'Daily change', since: 'Since your start', starting: 'Your starting point', actions: 'Actions',
@@ -44,6 +45,7 @@ const en = {
 const zh: Record<keyof typeof en, string> = {
   tagline: '以你的视角，看见市场。', overview: '市场概览', journal: '交易记录', settings: '偏好设置',
   watchlist: '我的自选股', watchHint: '关注你相信的公司，自由设定每只股票的比较起点。', addStock: '添加股票', addTrade: '记录交易', refresh: '刷新行情', export: '导出我的数据',
+  additionalBuy:'追加买入 / 定投',buyAgain:'追加买入',existingStock:'已有股票',chooseExistingStock:'请选择自选股或已记录交易的股票',additionalBuyHint:'记录已成交的追加买入或定投。沿用股票信息，本次数量、价格和时间单独填写。',additionalBuyTimeHint:'请按所选记录时区填写本次实际买入时间，可在备注注明“每月定投”等说明。',tradeStockFilter:'按股票查看交易',allTradeStocks:'全部股票',noStockTrades:'这只股票还没有交易记录，可以先记录一笔买入。', purchaseTime:'买入日期和时间',savePurchase:'保存本次买入',
   tracked: '关注股票', average: '平均价格收益率', alerts: '回撤提醒', coverage: '具有起始价和行情', averageHint: '等权价格涨跌，不代表持仓收益', alertHint: '按每只股票的独立阈值计算',
   all: '所有市场', search: '筛选股票代码或公司', company: '公司 / 交易所', latest: '最新价格', daily: '当日涨跌', since: '自起点涨跌', starting: '我的比较起点', actions: '操作',
   emptyWatch: '从一只股票，开启你的观察。', emptyWatchHint: '添加第一只股票，自由选择开始跟踪的时间。', edit: '编辑', remove: '删除', save: '保存修改', cancel: '取消', close: '关闭', loading: '加载中…', saving: '保存中…',
