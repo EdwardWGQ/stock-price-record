@@ -25,13 +25,15 @@ password_requirements = ""
 enable_signup = true
 enable_confirmations = true
 double_confirm_changes = true
+otp_length = 6
+otp_expiry = 600
 
 [auth.email.template.confirmation]
-subject = "Confirm your account / 验证账户 · US Equity Monitor"
+subject = "邮箱验证码 / Email verification code · Stock Atlas"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Reset your password / 重置密码 · US Equity Monitor"
+subject = "重置密码验证码 / Password reset code · Stock Atlas"
 content_path = "./supabase/templates/recovery.html"
 
 [functions.market-data]

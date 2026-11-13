@@ -87,20 +87,36 @@ def auth_config(config, custom_templates=False):
         'http://127.0.0.1:5173/','http://127.0.0.1:5173/auth/callback']),
         'password_min_length':6,'password_required_characters':'',
         'mailer_autoconfirm':False,'external_anonymous_users_enabled':False,
-        'mailer_secure_email_change_enabled':True}
+        'mailer_secure_email_change_enabled':True,'mailer_otp_length':6,'mailer_otp_exp':600}
     if custom_templates:
         body.update({'mailer_templates_confirmation_content':(ROOT/'supabase/templates/confirmation.html').read_text(encoding='utf-8'),
             'mailer_templates_recovery_content':(ROOT/'supabase/templates/recovery.html').read_text(encoding='utf-8'),
-            'mailer_subjects_confirmation':'Confirm your account / 验证账户 · US Equity Monitor',
-            'mailer_subjects_recovery':'Reset password / 重置密码 · US Equity Monitor'})
+            'mailer_subjects_confirmation':'邮箱验证码 / Email verification code · Stock Atlas',
+            'mailer_subjects_recovery':'重置密码验证码 / Password reset code · Stock Atlas'})
     endpoint=f'https://api.supabase.com/v1/projects/{PROJECT}/config/auth'
     request(endpoint,token,'PATCH',body)
     verified=request(endpoint,token)
-    for key in ['site_url','uri_allow_list','password_min_length','password_required_characters','mailer_autoconfirm','external_anonymous_users_enabled']:
+    for key in ['site_url','uri_allow_list','password_min_length','password_required_characters','mailer_autoconfirm','external_anonymous_users_enabled','mailer_otp_length','mailer_otp_exp']:
         if verified.get(key)!=body[key]: raise RuntimeError('Auth config verification failed: '+key)
-    if custom_templates and '/auth/callback?token_hash=' not in (verified.get('mailer_templates_recovery_content') or ''):
-        raise RuntimeError('Email template verification failed.')
+    if custom_templates:
+        for key in ['mailer_templates_confirmation_content','mailer_templates_recovery_content','mailer_subjects_confirmation','mailer_subjects_recovery']:
+            if verified.get(key)!=body[key]: raise RuntimeError('Email template verification failed: '+key)
     print('Verified production URL, callback allowlist, password requirements and email confirmation.')
+
+def email_codes(config):
+    """Update only OTP length, expiry and the two email templates."""
+    token=supabase_token(config)
+    endpoint=f'https://api.supabase.com/v1/projects/{PROJECT}/config/auth'
+    body={'mailer_otp_length':6,'mailer_otp_exp':600,
+        'mailer_templates_confirmation_content':(ROOT/'supabase/templates/confirmation.html').read_text(encoding='utf-8'),
+        'mailer_templates_recovery_content':(ROOT/'supabase/templates/recovery.html').read_text(encoding='utf-8'),
+        'mailer_subjects_confirmation':'邮箱验证码 / Email verification code · Stock Atlas',
+        'mailer_subjects_recovery':'重置密码验证码 / Password reset code · Stock Atlas'}
+    request(endpoint,token,'PATCH',body)
+    verified=request(endpoint,token)
+    for key,value in body.items():
+        if verified.get(key)!=value: raise RuntimeError('Email code configuration verification failed: '+key)
+    print('Verified 6-digit email codes, 10-minute expiry, and confirmation/recovery templates.')
 
 def smtp(config):
     names=['SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASS','SMTP_FROM_EMAIL']
@@ -155,10 +171,10 @@ def deploy(config):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['auth','smtp','market','china','deploy'])
+    parser.add_argument('action',choices=['auth','otp','smtp','market','china','deploy'])
     args=parser.parse_args()
     try:
-        {'auth':auth_config,'smtp':smtp,'market':market,'china':china_market,'deploy':deploy}[args.action](settings())
+        {'auth':auth_config,'otp':email_codes,'smtp':smtp,'market':market,'china':china_market,'deploy':deploy}[args.action](settings())
     except Exception as error:
         print('Configuration did not complete: '+str(error),file=sys.stderr)
         return 1

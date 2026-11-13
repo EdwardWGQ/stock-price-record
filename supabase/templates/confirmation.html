@@ -1,7 +1,9 @@
 <!doctype html>
 <html><body style="background:#080808;color:#eee;font-family:Arial,sans-serif;padding:28px">
-<h2 style="color:#ff9933">US EQUITY MONITOR</h2>
-<p>Confirm your email to activate your account.<br>请验证邮箱以激活账户。</p>
-<p><a style="color:#ff9933" href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=signup">Confirm email / 验证邮箱</a></p>
+<h2 style="color:#ff9933">STOCK ATLAS · 市场观测</h2>
+<p>请在网站输入以下 6 位数字以验证邮箱。<br>Enter this 6-digit code on the website to verify your email.</p>
+<p style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#ff9933">{{ .Token }}</p>
+<p>验证码 10 分钟内有效，请勿分享。<br>This code expires in 10 minutes. Do not share it.</p>
+<p style="color:#aaa">网站 / Website: {{ .SiteURL }}</p>
 <p style="color:#aaa;font-size:12px">If you did not create this account, ignore this message.<br>如果不是你创建的账户，请忽略此邮件。</p>
 </body></html>

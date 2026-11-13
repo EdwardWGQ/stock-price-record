@@ -31,10 +31,13 @@ import {emailLink,cleanAuthAddress,processEmailLink} from './lib/auth-links';
 import {saveExportFile} from './lib/export-file';
 import {parallelEach} from './lib/parallel';
 import {readWorkspace,writeWorkspace,clearWorkspace} from './lib/workspace-cache';
+const recoveryKey='stock-atlas-password-recovery';
+function readRecovery(){try{return sessionStorage.getItem(recoveryKey)==='true';}catch{return false;}}
 export default function App(){
  const language:Language='zh',zh=true,t=translator(language);
  const {page:tab,navigate:setTab,followLink}=usePageNavigation();
- const [user,setUser]=useState<User|null>(null),[ready,setReady]=useState(demoMode||!configured),[recovery,setRecovery]=useState(false);
+ const [user,setUser]=useState<User|null>(null),[ready,setReady]=useState(demoMode||!configured),[recovery,setRecovery]=useState(readRecovery);
+ useEffect(()=>{try{if(recovery)sessionStorage.setItem(recoveryKey,'true');else sessionStorage.removeItem(recoveryKey);}catch{/* Recovery also works without browser storage. */}},[recovery]);
  const [items,setItems]=useState<WatchItem[]>(demoMode?initialDemo().watchlist:[]),[trades,setTrades]=useState<Trade[]>(demoMode?initialDemo().trades:[]);
  const [histories,setHistories]=useState<Record<string,Bar[]>>(demoMode?Object.fromEntries(initialDemo().watchlist.map(i=>[i.id,demoBars(i)])):{});
  const [preparedVolatility,setPreparedVolatility]=useState<Record<string,import('./lib/types').Volatility>>({});
@@ -81,11 +84,11 @@ export default function App(){
   }else{
    const {data,error}=await supabase!.auth.getSession();
    if(error)throw error;
-   if(live)setUser(data.session?.user??null);
+   if(live){setUser(data.session?.user??null);if(!data.session)setRecovery(false);}
   }
  }catch{if(live)setNotice(zh?'验证链接无效或已过期。请重新发送确认邮件或申请重置密码。':'Verification link is invalid or expired. Request a new link.');history.replaceState(null,'',cleanAuthAddress(location.href));}
  finally{if(live)setReady(true);}
-})();const sub=supabase.auth.onAuthStateChange((event,session)=>{const id=session?.user.id??null;const changed=id!==active.current;if(changed){epoch.current++;removedIds.current.clear();historyFetched.current.clear();setDeleteTarget(null);setRecordsOwner(null);setItems([]);setTrades([]);setHistories({});setQuotes({});setErrors({});setBaselineEdit(null);setTradeEdit(null);}active.current=id;if(changed&&id){setPreparedVolatility({});setRestored(false);const cached=readWorkspace(id);if(cached){setItems(cached.watchlist);setHistories(cached.histories);setQuotes(cached.quotes);setPreparedVolatility(cached.volatility);setDate(cached.baselineDate);setRestored(true);}}else if(!id){setPreparedVolatility({});setRestored(false);}setUser(session?.user??null);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);});return()=>{live=false;sub.data.subscription.unsubscribe();};},[]);
+})();const sub=supabase.auth.onAuthStateChange((event,session)=>{const id=session?.user.id??null;const changed=id!==active.current;if(changed){epoch.current++;removedIds.current.clear();historyFetched.current.clear();setDeleteTarget(null);setRecordsOwner(null);setItems([]);setTrades([]);setHistories({});setQuotes({});setErrors({});setBaselineEdit(null);setTradeEdit(null);}active.current=id;if(changed&&id){setPreparedVolatility({});setRestored(false);const cached=readWorkspace(id);if(cached){setItems(cached.watchlist);setHistories(cached.histories);setQuotes(cached.quotes);setPreparedVolatility(cached.volatility);setDate(cached.baselineDate);setRestored(true);}}else if(!id){setPreparedVolatility({});setRestored(false);}setUser(session?.user??null);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);else if(event==='SIGNED_OUT')setRecovery(false);});return()=>{live=false;sub.data.subscription.unsubscribe();};},[]);
  async function reload(){if(demoMode)return;const e=++epoch.current;setRecordsOwner(null);setBusy(true);try{const r=await api.loadRecords();if(e!==epoch.current)return;setItems(r.watchlist);setTrades(r.trades);setDate(r.profile?.baseline_date??'2026-06-01');setQuotes(previous=>({...r.quotes,...Object.fromEntries(Object.entries(previous).filter(([id])=>r.watchlist.some(item=>item.id===id&&item.symbol===previous[id].symbol&&item.exchange===previous[id].exchange&&item.currency===previous[id].currency)))}));setHistories(previous=>({...Object.fromEntries(Object.entries(previous).filter(([id])=>r.watchlist.some(item=>item.id===id&&currentHistoryKeys.current.get(id)===historyKey(item)))),...r.histories}));setPreparedVolatility(r.volatility);if(Object.keys(r.quotes).length)setRestored(true);setRecordsOwner(user?.id??null);}catch(err){setNotice(errorText(err,language));}finally{if(e===epoch.current)setBusy(false);}}
  useEffect(()=>{if(user&&!recovery)void reload();},[user?.id,recovery]);
  useEffect(()=>{if(!demoMode&&user&&recordsOwner===user.id)writeWorkspace(user.id,{watchlist:items,quotes,histories,volatility:preparedVolatility,baselineDate:date});},[items,quotes,histories,preparedVolatility,date,recordsOwner,user?.id]);

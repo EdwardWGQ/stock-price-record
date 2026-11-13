@@ -57,7 +57,15 @@ python scripts/operations.py smtp
 
 它会写入 Supabase SMTP、启用中英文确认／重置邮件模板并检查配置。Supabase 免费项目使用默认发信服务时拒绝修改模板；默认服务不能向所有访客发送正式邮件。
 
-模板链接指向 `https://stock-atlas.pages.dev/auth/callback`，验证后立即清理 URL 中的令牌。用户可以跨浏览器打开邮件。配置模板前兼容 Supabase 默认 PKCE 回跳，同一浏览器打开默认重置邮件。
+注册确认和密码重置邮件使用 `{{ .Token }}` 显示 6 位数字验证码，10 分钟内有效。网页发送后进入输入验证码步骤；其他浏览器可在创建账户或重置密码页面选择“已有验证码，直接验证”。重发间隔为 60 秒。旧邮件的 `/auth/callback` 链接保留兼容。
+
+单独更新线上验证码长度、有效期和两个邮件模板（不修改 SMTP 凭据）：
+
+```powershell
+python scripts/operations.py otp
+```
+
+请分享正式网址 `https://stock-atlas.pages.dev/`。形如 `https://62492e6e.stock-atlas.pages.dev/` 的网址固定在该次部署，不会随新版发布而更新。
 
 ## 4. 最后的真实验证
 
