@@ -48,4 +48,14 @@ describe('current holdings and unrealized returns',()=>{
   const holdings=valuePositions(calculatePositions([trade('buy')]),{cached:quote({stale:true,cached:true})});
   expect(holdings[0]).toMatchObject({marketValue:'1500',profit:'490',quote:{stale:true,cached:true}});
  });
+ it('combines old and corrected ETF executions and uses a watchlist quote under the provider venue',()=>{
+  const old=trade('old',{symbol:'VOO',quantity:'0.11',price:'700',fees:'0.1'});
+  const next=trade('new',{symbol:'VOO',exchange:'NYSE ARCA',quantity:'0.09',price:'710',fees:'0.1',occurred_at:'2026-11-02T15:00:00Z'});
+  const sell=trade('sell',{symbol:'VOO',exchange:'AMEX',side:'sell',quantity:'0.05',occurred_at:'2026-11-03T15:00:00Z'});
+  const holdings=valuePositions(calculatePositions([old,next,sell]),{watchlist:quote({symbol:'VOO',exchange:'AMEX',price:'720'})});
+  expect(holdings).toHaveLength(1);
+  expect(holdings[0]).toMatchObject({exchange:'NYSE ARCA',quantity:'0.15',cost:'105.825',averageCost:'705.5',marketValue:'108',profit:'2.175',returnPercent:'2.06',incomplete:false});
+  expect(old.exchange).toBe('NASDAQ');
+  expect(old.price).toBe('700');
+ });
 });

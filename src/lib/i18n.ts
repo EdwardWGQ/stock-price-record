@@ -35,7 +35,7 @@ const en = {
   ambiguous: 'This time occurs twice due to daylight saving time. Choose the earlier or later occurrence.', occurrence: 'Repeated time handling', reject: 'Ask if the time repeats', earlier: 'Earlier occurrence', later: 'Later occurrence',
   decimalError: 'Use a positive decimal, up to 12 integer digits and 8 decimal places. Fees can be zero.',
   invalid: 'Check all fields. Dates must be between 1900 and 2100; alert threshold must be between -100 and below 0.',
-  marketMissing: 'Market data is not configured or this exchange is unavailable on the provider plan.',
+  marketMissing: 'Market data is not configured or this exchange is unavailable on the provider plan.', quoteUnavailable: 'The quote source did not return a usable price. Try refreshing.',
   rateLimit: 'Market data request limit reached. Please wait before trying again.',
   quotesNotice: 'Prices follow provider coverage and delay. A missing quote is never treated as zero.',
   chart: 'Recent daily closes', chartEmpty: 'Daily history is not available.', choose: 'Choose', selected: 'Selected instrument',
@@ -66,7 +66,7 @@ const zh: Record<keyof typeof en, string> = {
   saved: '保存成功。', deleted: '记录已删除。', confirmDelete: '删除这条记录？此操作无法撤销。', conflict: '这条记录已在其他设备上修改。请重新加载并确认后再保存。', offline: '当前网络离线，无法保存到服务器。',
   error: '请求未完成，请重试。', timezoneError: '请选择有效的 IANA 时区。', gap: '夏令时切换导致此本地时间不存在，请选择其他时间。', ambiguous: '夏令时切换导致此时间出现两次，请选择较早或较晚的一次。',
   occurrence: '重复时间处理', reject: '时间重复时提示我', earlier: '较早的一次', later: '较晚的一次', decimalError: '请输入正数，最多 12 位整数及 8 位小数。手续费可为零。', invalid: '请检查所有字段。日期范围为 1900—2100 年；提醒阈值为 -100 至小于 0。',
-  marketMissing: '尚未配置行情，或服务商套餐不支持此交易所。', rateLimit: '行情请求次数已达上限，请稍后重试。', quotesNotice: '行情覆盖范围和延迟由服务商决定；缺失行情不会按零计算。',
+  marketMissing: '尚未配置行情，或服务商套餐不支持此交易所。', quoteUnavailable: '行情源暂未返回有效报价，请稍后刷新。', rateLimit: '行情请求次数已达上限，请稍后重试。', quotesNotice: '行情覆盖范围和延迟由服务商决定；缺失行情不会按零计算。',
   chart: '近期日收盘价', chartEmpty: '暂无日线历史数据。', choose: '选择', selected: '已选股票', dataPrivacy: '你的自选股和交易记录归属于你的账户，并受数据库行级权限保护。',
   exportHint: '下载全部自选股及交易记录的 JSON 快照。', exportReady: '数据已下载。', pending: '尚未保存', currencyMismatch: '行情的币种或交易所与所选股票不符。', futureClose: '此起始日期暂无日收盘价。',
   reload: '重新加载记录', lastUpdated: '最近获取', security: '默认私有', markets: '跨市场观察', timeAware: '时间由你掌握',
@@ -75,6 +75,6 @@ export type TextKey = keyof typeof en;
 export function translator(language: Language) { return (key: TextKey) => (language === 'zh' ? zh : en)[key]; }
 export function errorText(error: unknown, language: Language): string {
   const t = translator(language); const code = error instanceof Error ? error.message : String(error);
-  const codes: Record<string, TextKey> = { TIMEZONE: 'timezoneError', TIME_GAP: 'gap', TIME_AMBIGUOUS: 'ambiguous', DECIMAL: 'decimalError', CONFLICT: 'conflict', OFFLINE: 'offline', MARKET_CONFIG: 'marketMissing', MARKET_UNAVAILABLE: 'marketMissing', RATE_LIMIT: 'rateLimit', IDENTITY_MISMATCH: 'currencyMismatch', HISTORY_EMPTY: 'futureClose' };
+  const codes: Record<string, TextKey> = { TIMEZONE: 'timezoneError', TIME_GAP: 'gap', TIME_AMBIGUOUS: 'ambiguous', DECIMAL: 'decimalError', CONFLICT: 'conflict', OFFLINE: 'offline', MARKET_CONFIG: 'marketMissing', MARKET_UNAVAILABLE: 'quoteUnavailable', RATE_LIMIT: 'rateLimit', IDENTITY_MISMATCH: 'currencyMismatch', HISTORY_EMPTY: 'futureClose' };
   return t(codes[code] ?? (code.includes('TIME') || code.includes('VALIDATION') ? 'invalid' : 'error'));
 }

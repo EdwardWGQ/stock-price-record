@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import type {TradeInput} from './types';
 import {tradeSchema} from './validation';
 import {resolveLocal,validTimezone} from './time';
+import {marketExchange,normalizeInstrument} from '../../shared/market-identity';
 
 export const chiefColumns=['成交编号','股票代码','公司名称','交易所','币种','交易方向','数量','成交价格','手续费','成交时间','记录时区','备注'] as const;
 const keys=['reference','symbol','name','exchange','currency','side','quantity','price','fees','occurred_at','record_timezone','notes'] as const;
@@ -85,7 +86,7 @@ async function parseChiefRows(headers:string[]|undefined,rows:string[][],userId:
    else throw new Error('成交时间必须包含真实日期与时间，例如 2026-11-09 10:30:00；不自动猜测缺失时间。');
    const notes=`${prefix}${JSON.stringify({account:accountAlias,reference})}\n${values.notes??''}`;
    const input={id:await chiefTradeId(userId,accountAlias,reference),symbol:values.symbol.toUpperCase(),name:values.name,exchange:values.exchange.toUpperCase(),currency:'USD',timezone:'America/New_York',side,quantity:amount(values.quantity,false),price:amount(values.price,false),fees:amount(values.fees,true),occurred_at:instant,record_timezone:values.record_timezone,notes};
-   const parsed=tradeSchema.safeParse(input);
+   const parsed=tradeSchema.safeParse(normalizeInstrument(input));
    if(!parsed.success)throw new Error('股票信息、金额或日期格式无效；金额最多 12 位整数和 8 位小数，备注最多约 1800 字。');
    trades.push(parsed.data);references.push(reference);
   }catch(error){throw new Error(`${source==='manual'?`第 ${index+1} 笔成交`:`第 ${index+2} 行`}：${error instanceof Error?error.message:'无法解析。'}`);}
@@ -98,6 +99,7 @@ export function sameImportedTrade(a:TradeInput,b:TradeInput):boolean {
  return keys.filter(key=>key!=='reference').every(key=>{
   if(key==='occurred_at')return new Date(a.occurred_at).getTime()===new Date(b.occurred_at).getTime();
   if(key==='quantity'||key==='price'||key==='fees')return new Decimal(a[key]).eq(b[key]);
+  if(key==='exchange')return marketExchange(a)===marketExchange(b);
   return a[key as keyof TradeInput]===b[key as keyof TradeInput];
  });
 }

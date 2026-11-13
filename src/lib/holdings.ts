@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import type {Instrument,Trade,Quote} from './types';
 import {tradeValue} from './finance';
 import {instrumentKey} from './trade-instruments';
+import {normalizeInstrument} from '../../shared/market-identity';
 
 export interface Position extends Instrument {key:string;quantity:string;cost:string|null;incomplete:boolean}
 export interface Holding extends Position {quote:Quote|null;averageCost:string|null;marketValue:string|null;profit:string|null;returnPercent:string|null}
@@ -25,7 +26,7 @@ export function calculatePositions(trades:Trade[]):Position[] {
   positions.set(key,position);
  }
  return [...positions].filter(([,position])=>!position.quantity.isZero()).map(([key,position])=>{
-  const {symbol,name,exchange,currency,timezone}=position.instrument;
+  const {symbol,name,exchange,currency,timezone}=normalizeInstrument(position.instrument);
   return {key,symbol,name,exchange,currency,timezone,quantity:position.quantity.toFixed(),cost:position.incomplete?null:position.cost.toFixed(),incomplete:position.incomplete};
  }).sort((a,b)=>a.symbol.localeCompare(b.symbol)||a.key.localeCompare(b.key));
 }

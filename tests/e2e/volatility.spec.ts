@@ -2,6 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {hoverHistoryPoint} from './helpers/chart';
 import {barsFrom,fixtureIndex} from '../fixtures/sentiment';
 import {chiefColumns} from '../../src/lib/broker-import';
+import {chinaQuotes} from '../../supabase/functions/market-data/china';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'browser-test@example.com',aud:'authenticated',app_metadata:{},user_metadata:{},created_at:'2026-10-29T00:00:00Z'};
 const indexData=(name:string)=>({name,bars:[{date:'2026-10-28',close:'20'},{date:'2026-10-29',close:'21'}],value:'21',change_percent:'5',week_change_percent:'5',average20:'20.5',as_of:'2026-10-29',fetched_at:'2026-10-30T00:00:00Z',source:'Cboe official / daily close',stale:false});
 const stock={id:'22222222-2222-4222-8222-222222222222',user_id:user.id,symbol:'AAPL',name:'Apple',exchange:'NASDAQ',currency:'USD',timezone:'America/New_York',baseline_date:'2026-06-01',baseline_at:'2026-06-01T04:00:00Z',baseline_timezone:'America/New_York',baseline_price:'200',alert_percent:'-30',notes:'',revision:1,created_at:'2026-10-29T00:00:00Z',updated_at:'2026-10-29T00:00:00Z'};
@@ -321,6 +322,51 @@ async function signedIn(page:Page,watchlist:unknown[]=[]) {
  });
  await page.route('https://test-project.supabase.co/auth/v1/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(user)}));
 }
+
+test('restores ETF quotes from legacy NASDAQ trades, reuses an AMEX watchlist quote and shows recoverable failures',async({page})=>{
+ const vooWatch={...stock,symbol:'VOO',name:'Vanguard',exchange:'AMEX'};
+ await signedIn(page,[vooWatch]);
+ const rows=['SPY','VOO','VTI'].map((symbol,index)=>({...stock,id:`55555555-5555-4555-8555-${String(index).padStart(12,'0')}`,symbol,name:symbol,side:'buy',quantity:'0.1',price:'700',fees:'0',occurred_at:'2026-11-01T15:00:00Z',record_timezone:'UTC'}));
+ await page.route('**/rest/v1/trades**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
+ let missing=true;const requested:{symbol:string;exchange:string}[]=[];
+ const provider=['SPY','VOO','VTI'].map((symbol,index)=>{const fields=Array(40).fill('');fields[2]=symbol+'.AM';fields[3]=String(720+index);fields[4]='710';fields[30]='2026-11-12 16:00:01';fields[35]='USD';return `v_us${symbol}="${fields.join('~')}";`;}).join('\n');
+ await page.route('**/functions/v1/market-data',route=>{
+  const body=route.request().postDataJSON();
+  if(body.action==='quotes'){
+   requested.push(...body.instruments.map(({symbol,exchange}:{symbol:string;exchange:string})=>({symbol,exchange})));
+   const result=chinaQuotes(provider,body.instruments,'2026-11-13T05:00:00Z');
+   if(missing)result.quotes=result.quotes.map(row=>row.symbol==='VTI'?{symbol:row.symbol,exchange:row.exchange,error:'MARKET_UNAVAILABLE'}:row);
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
+  }
+  if(body.action==='history')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({currency:'USD',exchange:body.instrument.exchange,bars:[{date:'2026-06-01',open:'700',close:'710'}]})});
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
+ });
+ await page.goto('/');
+ const holdings=page.getByRole('region',{name:'我的持仓收益',exact:true});
+ const spy=holdings.locator('tbody tr').filter({hasText:'SPY'}),voo=holdings.locator('tbody tr').filter({hasText:'VOO'}),vti=holdings.locator('tbody tr').filter({hasText:'VTI'});
+ await expect(spy.locator('td').nth(1)).toContainText('720.00');
+ await expect(voo.locator('td').nth(1)).toContainText('721.00');
+ await expect(vti.locator('td').nth(1)).toContainText('行情源暂未返回有效报价');
+ await expect(holdings.locator('tbody tr')).toHaveCount(3);
+ expect(requested.filter(row=>row.symbol==='VOO')).toHaveLength(1);
+ expect(requested.filter(row=>row.symbol!=='VOO').every(row=>row.exchange==='NYSE ARCA')).toBe(true);
+ missing=false;
+ await holdings.getByRole('button',{name:'刷新持仓报价',exact:true}).click();
+ await expect(vti.locator('td').nth(1)).toContainText('722.00');
+ await expect(vti.locator('td').nth(5)).toHaveText('USD 72.20');
+ await expect(vti.locator('td').nth(6)).toHaveText('+USD 2.20');
+ await expect(vti.locator('td').nth(7)).toHaveText('+3.14%');
+ for(const row of [spy,voo,vti])await expect(row.locator('.holding-market')).toHaveText('NYSE ARCA · USD');
+ await expect(holdings.getByLabel('USD 持仓汇总')).toContainText('USD 216.30');
+ await page.getByRole('link',{name:'交易日志',exact:true}).click();
+ await page.getByRole('button',{name:'致富成交导入',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'致富成交记录导入'});
+ await dialog.getByRole('button',{name:'手动输入',exact:true}).click();
+ await dialog.getByLabel('股票代码',{exact:true}).fill('VOO');
+ await expect(dialog.getByLabel('交易所',{exact:true})).toHaveValue('NYSE ARCA');
+ await dialog.getByLabel('股票代码',{exact:true}).fill('NVDA');
+ await expect(dialog.getByLabel('交易所',{exact:true})).toHaveValue('NASDAQ');
+});
 
 test('shows actual holding costs and returns, updates after buys and keeps missing valuations empty',async({page})=>{
  await signedIn(page,[stock]);

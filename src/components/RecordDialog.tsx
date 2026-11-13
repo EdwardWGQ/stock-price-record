@@ -11,6 +11,7 @@ import { demoInstruments } from '../lib/demo';
 import {ChiefFeeBreakdown} from './ChiefFeeBreakdown';
 import {chiefFeesForRecord,type ChiefChannel,type SecScope,type FeeRounding,type ChiefFeeResult} from '../lib/chief-fees';
 import {instrumentKey} from '../lib/trade-instruments';
+import {normalizeInstrument} from '../../shared/market-identity';
 
 export function RecordDialog({ kind, existing, initialInstrument, instruments=[], repeatBuy=false, zone, language, onClose, onSave }: {
   kind: 'watch' | 'trade'; existing?: WatchItem | Trade; zone: string; language: Language;
@@ -28,7 +29,8 @@ export function RecordDialog({ kind, existing, initialInstrument, instruments=[]
   const [occurrence, setOccurrence] = useState<'reject' | 'earlier' | 'later'>(() => {
     try { return resolveLocal(toLocal(originalInstant, originalZone), originalZone, 'earlier') === new Date(originalInstant).toISOString().replace('.000', '') ? 'earlier' : 'later'; } catch { return 'reject'; }
   });
-  const [instrument, setInstrument] = useState<Instrument>(existing ?? initialInstrument ?? { symbol: '', name: '', exchange: '', currency: 'USD', timezone: 'America/New_York' });
+  const [enteredInstrument, setInstrument] = useState<Instrument>(existing ?? initialInstrument ?? { symbol: '', name: '', exchange: '', currency: 'USD', timezone: 'America/New_York' });
+  const instrument=normalizeInstrument(enteredInstrument);
   const [manual, setManual] = useState(!!existing);
   const [query, setQuery] = useState(''); const [results, setResults] = useState<Instrument[]>([]);
   const [searching, setSearching] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
@@ -50,7 +52,7 @@ export function RecordDialog({ kind, existing, initialInstrument, instruments=[]
   }
   const effectiveFees=feeMode==='chief'?chiefEstimate?.total??'':fees;
   useEffect(() => { ref.current?.showModal(); const d = ref.current; return () => d?.close(); }, []);
-  useEffect(() => { setClose(null); closeSequence.current++; }, [localTime, recordZone, instrument]);
+  useEffect(() => { setClose(null); closeSequence.current++; }, [localTime, recordZone, enteredInstrument]);
   async function search() {
     if (!query.trim() || searching) return;
     const sequence = ++searchSequence.current; setSearching(true); setError('');

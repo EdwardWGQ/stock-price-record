@@ -2,6 +2,7 @@ import {Decimal} from 'decimal.js';
 import {Temporal} from '@js-temporal/polyfill';
 import type {z} from 'zod';
 import {instrument} from './core.ts';
+import {marketExchange} from '../../../shared/market-identity.ts';
 type Instrument=z.infer<typeof instrument>;
 const exchanges:Record<string,string>={OQ:'NASDAQ',N:'NYSE',AM:'AMEX'};
 const symbolPattern=/^[A-Z0-9][A-Z0-9.-]{0,23}$/;
@@ -22,7 +23,7 @@ export function chinaSearch(text:string) {
  return {instruments:match[1].split('^').flatMap(row=>{
   const fields=row.split('~');if(fields[0]!=='us')return [];
   try{const c=code(fields[1]);const key=c.symbol+':'+c.exchange;if(seen.has(key))return [];
-   const item=instrument.parse({...c,name:unescapeName(fields[2]||c.symbol),currency:'USD',timezone:'America/New_York'});seen.add(key);return [item];
+   const item=instrument.parse({...c,exchange:marketExchange({...c,currency:'USD'},false),name:unescapeName(fields[2]||c.symbol),currency:'USD',timezone:'America/New_York'});seen.add(key);return [item];
   }catch{return [];}
  }).slice(0,20)};
 }
@@ -31,7 +32,7 @@ export function chinaQuote(text:string,selected:Instrument,now=new Date().toISOS
  const row=rows.find(m=>m[1].toUpperCase()===selected.symbol);
  if(!row)throw new Error('MARKET_UNAVAILABLE');
  const fields=row[2].split('~');const actual=code(fields[2]||'');
- if(actual.symbol!==selected.symbol||actual.exchange!==selected.exchange||fields[35]!=='USD'||selected.currency!=='USD'||selected.timezone!=='America/New_York')throw new Error('IDENTITY_MISMATCH');
+ if(actual.symbol!==selected.symbol||marketExchange({...actual,currency:fields[35]},false)!==marketExchange(selected)||fields[35]!=='USD'||selected.currency!=='USD'||selected.timezone!=='America/New_York')throw new Error('IDENTITY_MISMATCH');
  const price=number(fields[3]),previous=number(fields[4]);
  const local=(fields[30]||'').trim();if(!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(local))throw new Error('MARKET_UNAVAILABLE');
  let asOf:string;

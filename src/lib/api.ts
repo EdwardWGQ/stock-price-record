@@ -3,6 +3,7 @@ import { watchSchema, tradeSchema, instrumentSchema } from './validation';
 import type { WatchItem, Trade, Profile, WatchInput, TradeInput, Instrument, Quote, Bar, Volatility, HistoryResult } from './types';
 import {parallelEach} from './parallel';
 import {sameImportedTrade} from './broker-import';
+import {normalizeInstrument} from '../../shared/market-identity';
 const client = () => { if (!supabase) throw new Error('CONFIG'); if (!navigator.onLine) throw new Error('OFFLINE'); return supabase; };
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T { if (result.error) throw new Error(result.error.message); return result.data as T; }
 export async function loadRecords() {
@@ -90,7 +91,7 @@ export async function marketRequest<T>(body: Record<string, unknown>): Promise<T
 }
 export async function searchInstruments(query: string): Promise<Instrument[]> {
   const result = await marketRequest<{ instruments: unknown[] }>({ action: 'search', query });
-  return result.instruments.flatMap(value => { const parsed = instrumentSchema.safeParse(value); return parsed.success ? [parsed.data] : []; });
+  return result.instruments.flatMap(value => { const parsed = instrumentSchema.safeParse(value); return parsed.success ? [normalizeInstrument(parsed.data)] : []; });
 }
 export async function fetchQuote(instrument: Instrument): Promise<Quote> { return marketRequest({ action: 'quote', instrument }); }
 export interface QuoteResult {symbol:string;exchange:string;quote?:Quote;error?:string}

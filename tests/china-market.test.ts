@@ -9,7 +9,17 @@ describe('domestic public web quote adapter',()=>{
   expect(results[1]).toMatchObject({symbol:'AAPL',quote:{price:'110.12345678',exchange:'NASDAQ'}});
   expect(results[2]).toMatchObject({symbol:'AAPL',exchange:'NYSE',error:'IDENTITY_MISMATCH'});
  });
- it('splits Tencent search records and decodes Chinese names without eval',()=>{const r=chinaSearch('v_hint="us~aapl.oq~\\u82f9\\u679c~pg~GP^us~voo.am~Vanguard~GP^sh~600000~bank"');expect(r.instruments[0]).toMatchObject({symbol:'AAPL',name:'苹果',exchange:'NASDAQ'});expect(r.instruments[1].exchange).toBe('AMEX');expect(r.instruments).toHaveLength(2);});
+ it('splits Tencent search records and decodes Chinese names without eval',()=>{const r=chinaSearch('v_hint="us~aapl.oq~\\u82f9\\u679c~pg~GP^us~voo.am~Vanguard~GP^sh~600000~bank"');expect(r.instruments[0]).toMatchObject({symbol:'AAPL',name:'苹果',exchange:'NASDAQ'});expect(r.instruments[1].exchange).toBe('NYSE ARCA');expect(r.instruments).toHaveLength(2);});
+ it('matches the verified Arca ETFs from Tencent AMEX against legacy and canonical records',()=>{
+  for(const symbol of ['SPY','VOO','VTI']){
+   const text=quote().replaceAll('AAPL',symbol).replace('.OQ','.AM');
+   for(const exchange of ['NASDAQ','AMEX','ARCA','NYSE ARCA'])expect(chinaQuote(text,{...item,symbol,exchange},'2026-10-28T20:01:00Z')).toMatchObject({symbol,exchange,price:'110.12345678'});
+   expect(()=>chinaQuote(text,{...item,symbol,exchange:'NYSE'})).toThrow('IDENTITY_MISMATCH');
+   expect(()=>chinaQuote(text,{...item,symbol,currency:'EUR'})).toThrow('IDENTITY_MISMATCH');
+   expect(()=>chinaQuote(text,{...item,symbol,timezone:'Europe/London'})).toThrow('IDENTITY_MISMATCH');
+   expect(()=>chinaQuote(text.replace('.AM','.OQ'),{...item,symbol,exchange:'NYSE ARCA'})).toThrow('IDENTITY_MISMATCH');
+  }
+ });
  it('preserves price decimals and converts exchange-local time to UTC',()=>{const r=chinaQuote(quote(),item,'2026-10-28T20:01:00Z');expect(r.price).toBe('110.12345678');expect(r.as_of).toBe('2026-10-28T20:00:01Z');expect(r.change_percent).toBe('10.12');expect(r.market_open).toBeNull();});
  it('rejects symbol/exchange collisions rather than guessing a market',()=>{expect(()=>chinaQuote(quote(),{...item,exchange:'NYSE'})).toThrow('IDENTITY_MISMATCH');});
  it('does not create a quote when upstream data is missing or zero',()=>{expect(()=>chinaQuote('v_pv_none_match="1"',item)).toThrow();expect(()=>chinaQuote(quote().replace('110.12345678','0'),item)).toThrow();});

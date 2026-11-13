@@ -8,6 +8,15 @@ const csv=headers+'\n'+line;
 const manual:ChiefManualEntry={reference:'FILL-001',symbol:'AAPL',name:'Apple',exchange:'NASDAQ',currency:'USD',side:'buy',quantity:'10',price:'200.50',fees:'1',occurred_at:'2026-11-09T10:30:00',record_timezone:'Asia/Hong_Kong',notes:'长期配置'};
 
 describe('reviewable Chief template imports',()=>{
+ it('normalizes known ETF imports and treats old venue labels as the same execution',async()=>{
+  const parsed=await parseChiefManualEntries([{...manual,symbol:'VOO',name:'Vanguard'}],user,'致富美股');
+  const row=parsed.trades[0];
+  expect(row.exchange).toBe('NYSE ARCA');
+  expect(sameImportedTrade(row,{...row,exchange:'NASDAQ'})).toBe(true);
+  expect(sameImportedTrade(row,{...row,exchange:'AMEX'})).toBe(true);
+  expect(sameImportedTrade(row,{...row,exchange:'NASDAQ',quantity:'11'})).toBe(false);
+  expect(sameImportedTrade(row,{...row,exchange:'NYSE'})).toBe(false);
+ });
  it('gives manual and file entries the same validated execution identity',async()=>{
   const file=await parseChiefTemplate(csv,user,'致富美股');
   const typed=await parseChiefManualEntries([{...manual,symbol:' aapl ',quantity:' 10 '}],user,'致富美股');

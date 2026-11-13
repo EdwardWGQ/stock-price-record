@@ -15,4 +15,11 @@ describe('existing instruments for additional purchases',()=>{
   const previous:Trade={...instrument,id:'33333333-3333-4333-8333-333333333333',user_id:'owner',side:'buy',quantity:'5',price:'190',fees:'1',occurred_at:'2026-11-01T13:30:00Z',record_timezone:'Asia/Shanghai',notes:'[CHIEF-IMPORT-v1]old-execution',revision:3,created_at:'2026-11-01T13:30:00Z',updated_at:'2026-11-01T13:30:00Z'};
   expect(tradeInstruments([previous])).toEqual([instrument]);
  });
+ it('unifies verified ETF legacy listings without merging other symbols or currencies',()=>{
+  const voo={...instrument,symbol:'VOO'};
+  expect(tradeInstruments([voo,{...voo,exchange:'AMEX'},{...voo,exchange:'ARCA'},{...voo,exchange:'NYSE ARCA'}])).toEqual([{...voo,exchange:'NYSE ARCA'}]);
+  expect(instrumentKey(voo)).not.toBe(instrumentKey({...voo,exchange:'NYSE'}));
+  expect(instrumentKey({...voo,currency:'EUR'})).not.toBe(instrumentKey({...voo,currency:'EUR',exchange:'AMEX'}));
+  expect(instrumentKey(instrument)).not.toBe(instrumentKey({...instrument,exchange:'AMEX'}));
+ });
 });
