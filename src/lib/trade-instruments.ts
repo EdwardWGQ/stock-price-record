@@ -1,6 +1,6 @@
 import type {Instrument} from './types';
 
-export function instrumentKey(instrument:Instrument):string {
+export function instrumentKey(instrument:Pick<Instrument,'symbol'|'exchange'|'currency'>):string {
  return JSON.stringify([instrument.symbol.trim().toUpperCase(),instrument.exchange.trim().toUpperCase(),instrument.currency.trim().toUpperCase()]);
 }
 

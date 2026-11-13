@@ -8,14 +8,27 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
 export async function loadRecords() {
   const db = client();
   const prepared=await db.rpc('monitor_workspace');
-  if(!prepared.error&&prepared.data)return prepared.data as {watchlist:WatchItem[];trades:Trade[];profile:Profile|null;quotes:Record<string,Quote>;histories:Record<string,Bar[]>;volatility:Record<string,Volatility>};
+  if(!prepared.error&&prepared.data){
+    const data=prepared.data as {watchlist:WatchItem[];trades:Trade[];profile:Profile|null;quotes:Record<string,Quote>;histories:Record<string,Bar[]>;volatility:Record<string,Volatility>};
+    return {...data,trades:await completeTradeHistory(data.trades)};
+  }
   const results = await Promise.allSettled([
     db.from('watchlist').select('*').order('created_at', { ascending: true }),
     db.from('trades').select('*').order('occurred_at', { ascending: false }).order('id').range(0, 99),
     db.from('profiles').select('*').maybeSingle(),
   ]);
   const values = results.map(result => { if (result.status === 'rejected') throw result.reason; return unwrap(result.value); });
-  return { watchlist: values[0] as WatchItem[], trades: values[1] as Trade[], profile: values[2] as Profile | null,quotes:{},histories:{},volatility:{} };
+  return { watchlist: values[0] as WatchItem[], trades: await completeTradeHistory(values[1] as Trade[]), profile: values[2] as Profile | null,quotes:{},histories:{},volatility:{} };
+}
+async function completeTradeHistory(initial:Trade[]):Promise<Trade[]> {
+  const trades=[...initial],seen=new Set(initial.map(trade=>trade.id));let batch=initial;
+  while(batch.length>=100){
+    batch=await olderTrades(batch[batch.length-1]);
+    if(batch.some(trade=>seen.has(trade.id)))throw new Error('成交历史分页重复，请重新加载。');
+    for(const trade of batch)seen.add(trade.id);
+    trades.push(...batch);
+  }
+  return trades;
 }
 export async function saveWatch(input: WatchInput, userId: string, revision?: number): Promise<WatchItem> {
   const data = watchSchema.parse(input); const db = client();

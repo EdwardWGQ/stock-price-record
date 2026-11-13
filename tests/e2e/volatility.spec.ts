@@ -84,6 +84,7 @@ test('manually enters Chief executions, invalidates edited previews and skips a 
  await first.getByLabel('公司名称',{exact:true}).fill('Apple');
  await first.getByLabel('数量',{exact:true}).fill('10');
  await first.getByLabel('成交价格（USD）',{exact:true}).fill('200.50');
+ await first.getByLabel('手续费计算方式',{exact:true}).selectOption('manual');
  await first.getByLabel('手续费（USD）',{exact:true}).fill('1');
  await first.getByLabel('成交时间',{exact:true}).fill('2026-11-09T10:30');
  await first.getByLabel('备注（选填）',{exact:true}).fill('长期配置');
@@ -103,6 +104,7 @@ test('manually enters Chief executions, invalidates edited previews and skips a 
  await second.getByLabel('交易方向',{exact:true}).selectOption('sell');
  await second.getByLabel('数量',{exact:true}).fill('2');
  await second.getByLabel('成交价格（USD）',{exact:true}).fill('400');
+ await second.getByLabel('手续费计算方式',{exact:true}).selectOption('manual');
  await second.getByLabel('手续费（USD）',{exact:true}).fill('0');
  await second.getByLabel('成交时间',{exact:true}).fill('2026-11-09T11:30');
  await dialog.getByRole('button',{name:'添加一笔成交',exact:true}).click();
@@ -134,6 +136,89 @@ test('manually enters Chief executions, invalidates edited previews and skips a 
  await dialog.getByRole('button',{name:'确认导入 1 条',exact:true}).click();
  await expect(dialog).toContainText('已导入 0 条，跳过 1 条');
  expect(insertCalls).toBe(1);
+});
+
+test('automatically fills Chief manual fees, recalculates edited previews and saves the displayed amount',async({page})=>{
+ await signedIn(page);
+ let savedRows:Record<string,unknown>[]=[],writes=0;
+ await page.route('https://test-project.supabase.co/rest/v1/trades**',route=>{
+  if(route.request().method()==='POST'){
+   writes++;
+   savedRows=(route.request().postDataJSON() as Record<string,unknown>[]).map(row=>({...row,user_id:user.id,revision:1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
+  }
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(savedRows)});
+ });
+ await page.route('**/functions/v1/market-data',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'}));
+ await page.goto('/journal');
+ await page.getByRole('button',{name:'致富成交导入',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'致富成交记录导入'});
+ await dialog.getByRole('button',{name:'手动输入',exact:true}).click();
+ const first=dialog.getByRole('region',{name:'第 1 笔成交',exact:true}),fees=first.getByLabel('手续费（USD）',{exact:true});
+ await expect(first.getByLabel('手续费计算方式',{exact:true})).toHaveValue('chief');
+ await expect(fees).toHaveAttribute('readonly','');
+ await first.getByLabel('成交编号',{exact:true}).fill('AUTO-001');
+ await first.getByLabel('股票代码',{exact:true}).fill('VOO');
+ await first.getByLabel('公司名称',{exact:true}).fill('Vanguard S&P 500 ETF');
+ await first.getByLabel('数量',{exact:true}).fill('0.11');
+ await first.getByLabel('成交价格（USD）',{exact:true}).fill('696.72');
+ await expect(fees).toHaveValue('');
+ await first.getByLabel('成交时间',{exact:true}).fill('2026-11-09T10:30');
+ await expect(fees).toHaveValue('1.00');
+ await first.getByLabel('数量',{exact:true}).fill('10');
+ await expect(fees).toHaveValue('1.02');
+ await first.getByLabel('交易方向',{exact:true}).selectOption('sell');
+ await expect(fees).toHaveValue('1.16');
+ await first.getByLabel('成交价格（USD）',{exact:true}).fill('200');
+ await expect(fees).toHaveValue('1.06');
+ await dialog.getByRole('button',{name:'预览成交',exact:true}).click();
+ await expect(dialog.locator('.broker-import-preview tbody tr').first().locator('td').nth(5)).toHaveText('1.06');
+ await dialog.getByRole('checkbox').check();
+ await first.getByLabel('数量',{exact:true}).fill('1000');
+ await expect(fees).toHaveValue('15.12');
+ await expect(dialog.locator('.broker-import-preview')).toHaveCount(0);
+ await first.getByLabel('成交时间',{exact:true}).fill('2027-01-01T02:00');
+ await expect(first).toContainText('美东成交日期 2026-12-31');
+ await first.getByLabel('记录时区',{exact:true}).selectOption('America/New_York');
+ await expect(fees).toHaveValue('');
+ await dialog.getByRole('button',{name:'预览成交',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('2026-12-31');
+ expect(writes).toBe(0);
+ await first.getByLabel('记录时区',{exact:true}).selectOption('Asia/Hong_Kong');
+ await first.locator('.broker-manual-fee-details>summary').click();
+ await first.getByRole('button',{name:'电话交易',exact:true}).click();
+ await expect(fees).toHaveValue('37.12');
+ await first.getByRole('button',{name:'App／网上交易 · 0 佣',exact:true}).click();
+ await first.getByLabel('手续费计算方式',{exact:true}).selectOption('manual');
+ await expect(fees).toHaveValue('15.12');
+ await fees.fill('0');
+ await first.getByLabel('成交价格（USD）',{exact:true}).fill('400');
+ await expect(fees).toHaveValue('0');
+ await first.getByLabel('手续费计算方式',{exact:true}).selectOption('chief');
+ await expect(fees).toHaveValue('19.24');
+ await dialog.getByRole('button',{name:'添加一笔成交',exact:true}).click();
+ const second=dialog.getByRole('region',{name:'第 2 笔成交',exact:true});
+ await expect(second.getByLabel('手续费（USD）',{exact:true})).toHaveValue('');
+ await second.getByLabel('成交编号',{exact:true}).fill('AUTO-002');
+ await second.getByLabel('股票代码',{exact:true}).fill('AAPL');
+ await second.getByLabel('公司名称',{exact:true}).fill('Apple');
+ await second.getByLabel('数量',{exact:true}).fill('0.11');
+ await second.getByLabel('成交价格（USD）',{exact:true}).fill('696.72');
+ await second.getByLabel('成交时间',{exact:true}).fill('2026-11-09T10:30');
+ await expect(second.getByLabel('手续费（USD）',{exact:true})).toHaveValue('1.00');
+ await expect(fees).toHaveValue('19.24');
+ await dialog.getByRole('button',{name:'预览成交',exact:true}).click();
+ await expect(dialog.locator('.broker-import-preview tbody tr td:nth-child(6)')).toHaveText(['19.24','1']);
+ await fees.scrollIntoViewIfNeeded();
+ await dialog.screenshot({path:'artifacts/chief-auto-fees-desktop.png'});
+ await page.setViewportSize({width:390,height:844});
+ expect(await first.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+ await fees.scrollIntoViewIfNeeded();
+ await dialog.screenshot({path:'artifacts/chief-auto-fees-mobile.png'});
+ await dialog.getByRole('checkbox').check();
+ await dialog.getByRole('button',{name:'确认导入 2 条',exact:true}).click();
+ await expect(dialog).toContainText('已导入 2 条，跳过 0 条');
+ expect(writes).toBe(1);
+ expect(savedRows).toEqual(expect.arrayContaining([expect.objectContaining({symbol:'VOO',fees:'19.24',occurred_at:'2026-12-31T18:00:00Z'}),expect.objectContaining({symbol:'AAPL',fees:'1'})]));
 });
 
 test('records subsequent purchases of an existing stock with independent times and preserves original records',async({page})=>{
@@ -236,6 +321,87 @@ async function signedIn(page:Page,watchlist:unknown[]=[]) {
  });
  await page.route('https://test-project.supabase.co/auth/v1/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(user)}));
 }
+
+test('shows actual holding costs and returns, updates after buys and keeps missing valuations empty',async({page})=>{
+ await signedIn(page,[stock]);
+ const base={...stock,side:'buy',quantity:'10',price:'100',fees:'10',occurred_at:'2026-11-01T15:00:00Z',record_timezone:'UTC'};
+ const row=(index:number,changes:Record<string,unknown>={})=>({...base,id:`55555555-5555-4555-8555-${String(index).padStart(12,'0')}`,...changes});
+ let records=[row(1),row(2,{price:'200',occurred_at:'2026-11-02T15:00:00Z'}),row(3,{side:'sell',quantity:'5',price:'180',fees:'5',occurred_at:'2026-11-03T15:00:00Z'}),row(4,{symbol:'MSFT',name:'Microsoft',quantity:'0.11',price:'696.72',fees:'1'}),row(5,{symbol:'CLOSED'}),row(6,{symbol:'CLOSED',side:'sell',occurred_at:'2026-11-02T15:00:00Z'}),row(7,{symbol:'MISSING',quantity:'2',price:'50',fees:'0'})];
+ let missing=false;const requests=new Set<string>();
+ await page.route('**/rest/v1/trades**',route=>{
+  if(route.request().method()==='POST'){
+   const saved={...route.request().postDataJSON(),user_id:user.id,revision:1,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};records.push(saved);
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([saved])});
+  }
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(records)});
+ });
+ await page.route('**/functions/v1/market-data',route=>{
+  const body=route.request().postDataJSON();
+  if(body.action==='quotes'){
+   for(const instrument of body.instruments)requests.add(instrument.symbol);
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({quotes:body.instruments.map((instrument:typeof stock)=>({symbol:instrument.symbol,exchange:instrument.exchange,...instrument.symbol==='MISSING'&&!missing?{error:'MARKET_UNAVAILABLE'}:{quote:{...instrument,price:instrument.symbol==='MSFT'?'700':instrument.symbol==='MISSING'?'60':'200',change_percent:'1',as_of:'2026-11-13T15:00:00Z',fetched_at:'2026-11-13T15:01:00Z',market_open:true,source:'fixture',stale:false}}}))})});
+  }
+  if(body.action==='history')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({exchange:'NASDAQ',currency:'USD',bars:[{date:'2026-06-01',open:'200',close:'200'}]})});
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(indexData(body.symbol))});
+ });
+ await page.setViewportSize({width:1440,height:1000});await page.goto('/');
+ const holdings=page.getByRole('region',{name:'我的持仓收益',exact:true});
+ await expect(holdings).toBeVisible();await expect(holdings.locator('tbody tr')).toHaveCount(3);
+ const aapl=holdings.locator('tbody tr').filter({hasText:'AAPL'}),msft=holdings.locator('tbody tr').filter({hasText:'MSFT'}),unknown=holdings.locator('tbody tr').filter({hasText:'MISSING'});
+ await expect(aapl.locator('td').nth(2)).toHaveText('15');
+ await expect(aapl.locator('td').nth(3)).toContainText('151.00');await expect(aapl.locator('td').nth(4)).toContainText('2,265.00');
+ await expect(aapl.locator('td').nth(6)).toContainText('+USD 735.00');await expect(aapl.locator('td').nth(7)).toHaveText('+32.45%');
+ await expect(msft.locator('td').nth(2)).toHaveText('0.11');await expect(msft.locator('td').nth(6)).toContainText('-USD 0.64');
+ await expect(unknown.locator('td').nth(5)).toHaveText('—');await expect(unknown.locator('td').nth(7)).toHaveText('—');
+ expect(requests.has('MSFT')).toBe(true);expect(requests.has('CLOSED')).toBe(false);
+ await expect(holdings.getByRole('heading')).toHaveText('我的持仓收益');
+ await expect(holdings.getByLabel('USD 持仓汇总')).toContainText('1 只持仓暂无可用估值');
+ await holdings.getByRole('button',{name:'收益率',exact:false}).click();
+ await expect(holdings.locator('tbody tr').first()).toContainText('AAPL');await expect(holdings.locator('tbody tr').last()).toContainText('MISSING');
+ await aapl.getByRole('button',{name:'追加买入 / 定投 AAPL detail',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'追加买入 / 定投',exact:true});
+ await editor.getByLabel('买入日期和时间',{exact:true}).fill('2026-11-04T15:00');
+ await editor.getByLabel('手续费计算方式',{exact:true}).selectOption('manual');
+ await editor.getByLabel('数量',{exact:true}).fill('5');await editor.getByLabel('每股价格',{exact:true}).fill('50');await editor.getByLabel('手续费',{exact:true}).fill('5');
+ await editor.getByRole('button',{name:'保存本次买入',exact:true}).click();
+ await expect(aapl.locator('td').nth(2)).toHaveText('20');await expect(aapl.locator('td').nth(4)).toContainText('2,520.00');await expect(aapl.locator('td').nth(6)).toContainText('+USD 1,480.00');
+ missing=true;await page.getByRole('button',{name:'刷新美股行情',exact:true}).click();
+ await expect(unknown.locator('td').nth(6)).toContainText('+USD 20.00');
+ await expect(holdings.getByLabel('USD 持仓汇总')).toContainText('+USD 1,499.36');
+ await holdings.scrollIntoViewIfNeeded();await holdings.screenshot({path:'artifacts/my-holding-returns-desktop.png'});
+ await page.setViewportSize({width:390,height:844});
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(holdings.getByLabel('USD 持仓汇总')).toBeVisible();
+ await holdings.scrollIntoViewIfNeeded();await holdings.screenshot({path:'artifacts/my-holding-returns-mobile.png'});
+ await holdings.getByRole('button',{name:'查看交易记录',exact:true}).click();
+ await expect(page).toHaveURL(/\/journal$/);await expect(page.locator('.journal-section tbody tr')).toHaveCount(8);
+});
+
+for(const prepared of [true,false])test(`loads complete holdings beyond 100 executions via ${prepared?'prepared workspace':'fallback records'}`,async({page})=>{
+ await signedIn(page,[stock]);
+ const base={...stock,symbol:'MSFT',name:'Microsoft',side:'sell',quantity:'1',price:'120',fees:'1',record_timezone:'UTC'};
+ const recent=Array.from({length:100},(_,index)=>({...base,id:`66666666-6666-4666-8666-${String(index).padStart(12,'0')}`,occurred_at:new Date(Date.UTC(2026,10,1,15,index)).toISOString()})).reverse();
+ const oldest={...base,id:'77777777-7777-4777-8777-777777777777',side:'buy',quantity:'200',price:'100',fees:'20',occurred_at:'2026-10-01T15:00:00Z'};
+ let pages=0;
+ if(prepared)await page.route('**/rest/v1/rpc/monitor_workspace',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({watchlist:[stock],trades:recent,profile:null,quotes:{},histories:{},volatility:{}})}));
+ await page.route('**/rest/v1/trades**',route=>{
+  const cursor=new URL(route.request().url()).searchParams.get('or');
+  if(cursor){pages++;expect(cursor).toContain(recent[99].occurred_at);}
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(cursor?[oldest]:recent)});
+ });
+ await page.route('**/functions/v1/market-data',route=>{
+  const body=route.request().postDataJSON();
+  if(body.action==='quotes')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({quotes:body.instruments.map((instrument:typeof stock)=>({symbol:instrument.symbol,exchange:instrument.exchange,quote:{...instrument,price:'150',change_percent:'1',as_of:'2026-11-13T15:00:00Z',fetched_at:'2026-11-13T15:01:00Z',market_open:true,source:'fixture',stale:false}}))})});
+  return route.fulfill({status:503,contentType:'application/json',body:'{"error":"MARKET_UNAVAILABLE"}'});
+ });
+ await page.goto('/');
+ const position=page.locator('#detailSection tbody tr');await expect(position).toHaveCount(1);
+ await expect(position).toContainText('MSFT');await expect(position.locator('td').nth(2)).toHaveText('100');
+ await expect(position.locator('td').nth(3)).toContainText('100.10');await expect(position.locator('td').nth(4)).toContainText('10,010.00');
+ await expect(position.locator('td').nth(6)).toContainText('+USD 4,990.00');expect(pages).toBe(1);
+ await page.getByRole('navigation',{name:'页面切换'}).getByRole('link',{name:'交易日志',exact:true}).click();
+ await expect(page.locator('.journal-section tbody tr')).toHaveCount(101);
+});
 
 test('exposes admin mode only after a database role check, shows user records and polls new buys',async({page})=>{
  await signedIn(page);
@@ -612,7 +778,7 @@ test('keeps the stock visible when deletion fails and lets the user retry',async
   return route.fulfill({status:failed?503:200,contentType:'application/json',body:JSON.stringify(failed?{message:'unavailable'}:[{id:stock.id}])});
  });
  await page.goto('/');
- await page.getByRole('button',{name:'删除 AAPL detail',exact:true}).click();
+ await page.getByRole('button',{name:'删除 AAPL',exact:true}).click();
  await page.getByRole('button',{name:'确认删除',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText('请求未完成');
  await expect(page.locator('.wl-row')).toHaveCount(1);

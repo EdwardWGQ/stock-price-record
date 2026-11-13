@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {Download,FileUp,CheckCircle2,X} from 'lucide-react';
 import {parseChiefTemplate,parseChiefManualEntries,sameImportedTrade,type ChiefImport} from '../lib/broker-import';
 import {ChiefManualEntryFields,newChiefManualDraft} from './ChiefManualEntryFields';
+import {resolveChiefManualDraft} from '../lib/chief-manual-fees';
 import type {Trade,TradeInput} from '../lib/types';
 import {formatTime} from '../lib/time';
 
@@ -17,7 +18,11 @@ export function BrokerImportDialog({userId,existing,onClose,onImport}:{userId:st
   if(locked.current||(mode==='file'&&!file))return;locked.current=true;setBusy(true);setError('');const current=++sequence.current;
   try{
    let data:ChiefImport;
-   if(mode==='manual')data=await parseChiefManualEntries(drafts.map(draft=>draft.entry),userId,alias.trim());
+   if(mode==='manual')data=await parseChiefManualEntries(drafts.map((draft,index)=>{
+    const resolved=resolveChiefManualDraft(draft);
+    if(draft.feeMode==='chief'&&!resolved.estimate)throw new Error(`第 ${index+1} 笔成交：${resolved.error}`);
+    return resolved.entry;
+   }),userId,alias.trim());
    else{
     if(!file)return;
     if(file.size>1024*1024)throw new Error('文件超过 1 MB，请拆分导入。');
@@ -50,7 +55,7 @@ export function BrokerImportDialog({userId,existing,onClose,onImport}:{userId:st
     <label>账户别名<input required value={alias} maxLength={40} onChange={event=>{setAlias(event.target.value);reset();}} placeholder="例如：致富美股"/></label>
     <p className="help">使用固定别名区分自己的账户。无需券商密码、验证码或真实账号。</p>
     {mode==='file'?<label className="broker-file-label"><FileUp size={19} aria-hidden="true"/><span>{file?file.name:'选择整理好的 CSV／TSV 文件'}</span><input type="file" accept=".csv,.tsv" aria-label="致富成交文件" onChange={event=>{setFile(event.target.files?.[0]??null);reset();}}/></label>:<ChiefManualEntryFields drafts={drafts} onChange={next=>{setDrafts(next);reset();}}/>}
-    <p className="help">成交编号必须对应每笔独立成交；分笔成交不能重复使用订单号。时间须包含日期和时刻，并填写原始记录时区；缺失手续费请先核对结单。</p>
+    <p className="help">成交编号必须对应每笔独立成交；分笔成交不能重复使用订单号。时间须包含日期和时刻，并填写原始记录时区；{mode==='file'?'缺失手续费请先核对结单。':'自动估算的手续费请按结单核对，收费表不适用时可手动填写实际费用。'}</p>
     <button type="submit" className="secondary" disabled={(mode==='file'&&!file)||busy||!!result}>{busy&&!parsed?(mode==='file'?'正在读取…':'正在校验…'):(mode==='file'?'读取并预览':'预览成交')}</button>
    </fieldset>
    </form>

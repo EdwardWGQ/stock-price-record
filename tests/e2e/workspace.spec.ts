@@ -160,9 +160,10 @@ test('restores the original black monitor with 19 curves and watchlist',async({p
  expect(main!.y-controls!.y-controls!.height).toBeLessThan(35);
  await expect(page.locator('#volSection')).toContainText('VXN');
  await expect(page.locator('#volSection')).toContainText('2026-10-28');
- await page.getByRole('link',{name:'明细表',exact:true}).click();
+ await page.getByRole('link',{name:'我的持仓收益',exact:true}).click();
  await expect(page.locator('#detailSection')).toBeInViewport();
- await expect(page.locator('#detailSection tbody tr')).toHaveCount(19);
+ await expect(page.locator('#detailSection tbody tr')).toHaveCount(1);
+ await expect(page.locator('#detailSection')).toContainText('我的持仓收益');
  await page.evaluate(()=>scrollTo(0,0));
  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe('rgb(0, 0, 0)');
  await page.screenshot({path:'artifacts/restored-desktop.png',fullPage:true});
@@ -200,6 +201,7 @@ test('uses the original fixed labels and keeps stock identifiers untranslated',a
 });
 test('changes every baseline date and recalculates prices and returns',async({page})=>{
  const original=await page.locator('.wl-row').first().innerText();
+ const holding=await page.locator('#detailSection tbody').innerText();
  await page.getByRole('button',{name:'修改起始日期',exact:true}).click();
  await page.getByLabel('起始记录日期',{exact:true}).fill('2026-07-01');
  await page.getByRole('button',{name:'查询并预览新起点'}).click();
@@ -208,7 +210,7 @@ test('changes every baseline date and recalculates prices and returns',async({pa
  await expect(page.getByRole('dialog')).not.toBeVisible();
  await expect(page.getByLabel('当前统一起始日期')).toHaveValue('2026-07-01');
  expect(await page.locator('.wl-row').first().innerText()).not.toBe(original);
- await expect(page.locator('.table-section tbody tr').first()).toContainText('2026-07-01');
+ expect(await page.locator('#detailSection tbody').innerText()).toBe(holding);
 });
 test('changes only one stock and displays a non-trading-day rollover',async({page})=>{
  await page.getByRole('button',{name:'修改日期 AAPL',exact:true}).click();
@@ -218,8 +220,8 @@ test('changes only one stock and displays a non-trading-day rollover',async({pag
  await page.getByRole('button',{name:'确认修改日期',exact:true}).click();
  await expect(page.getByRole('dialog')).not.toBeVisible();
  await expect(page.getByLabel('当前统一起始日期')).toHaveValue('2026-06-01');
- const aapl=page.locator('.table-section tbody tr').filter({hasText:'AAPL'});
- await expect(aapl).toContainText('2026-07-04');await expect(aapl).toContainText('2026-07-06');
+ await expect(page.getByRole('button',{name:'修改日期 AAPL',exact:true})).toHaveAttribute('title','2026-07-04 / change date');
+ await expect(page.locator('#detailSection tbody')).not.toContainText('2026-07-04');
 });
 test('does not overwrite a baseline when the history request has no data',async({page})=>{
  await page.getByRole('button',{name:'修改日期 AAPL',exact:true}).click();
